@@ -65,4 +65,6 @@ Thumbs.db
 
 # Node modules (if any)
 node_modules/
+frontend/node_modules/
+frontend/dist/
 

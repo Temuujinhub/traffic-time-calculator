@@ -33,10 +33,10 @@ jobs:
     
     - name: Build frontend
       run: |
-        cd ../traffic-time-frontend
+        cd frontend
         pnpm install
         pnpm run build
-        cp -r dist/* ../traffic-time-backend/src/static/
+        cp -r dist/* ../src/static/
     
     - name: Run tests (if any)
       run: |
