@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Түгжрэлд Алдагдсан Цаг Тооцоолуур</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD_RxGFjYwvqoDIq17ZMhdLcChy0tTTrnU&libraries=places&callback=initMap"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
         }
     </style>
 </head>
@@ -22,39 +27,33 @@
 
             <!-- Calculator Card -->
             <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-                <h2 class="text-2xl font-semibold mb-6 text-gray-800">🚗 Маршрутын мэдээлэл оруулна уу</h2>
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">🚗 3 байршлын мэдээлэл оруулна уу</h2>
                 
-                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                <div class="grid md:grid-cols-1 gap-6 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Гэрийн хаяг</label>
                         <input type="text" id="homeAddress" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Гэрийн хаягаа оруулна уу">
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Ажлын байр</label>
-                        <input type="text" id="workAddress" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ажлын байрны хаягаа оруулна уу">
-                    </div>
-                </div>
-
-                <div class="grid md:grid-cols-3 gap-4 mb-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Түгжрэлгүй цаг (минут)</label>
-                        <input type="number" id="normalTime" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="30" value="30">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Сургууль/Ажлын байр 1</label>
+                        <input type="text" id="schoolAddress" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Сургууль эсвэл ажлын байрны хаягаа оруулна уу">
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Түгжрэлтэй цаг (минут)</label>
-                        <input type="number" id="trafficTime" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="45" value="45">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Зай (км) - заавал биш</label>
-                        <input type="number" id="distance" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="15.5">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ажлын байр 2 (заавал биш)</label>
+                        <input type="text" id="workAddress" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Хоёр дахь ажлын байрны хаягаа оруулна уу">
                     </div>
                 </div>
 
-                <button onclick="calculateTimeLoss()" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200">
-                    🧮 Цагийн алдагдлыг тооцоолох
+                <!-- Map -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-700 mb-3">Газрын зураг дээрх маршрут</h3>
+                    <div id="map" class="rounded-lg border border-gray-300"></div>
+                </div>
+
+                <button onclick="calculateRealTimeLoss()" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200">
+                    ⚡ Google Maps-аар жинхэнэ цагийг тооцоолох
                 </button>
             </div>
 
@@ -99,70 +98,234 @@
     </div>
 
     <script>
-        function calculateTimeLoss() {
-            const normalTime = parseInt(document.getElementById('normalTime').value) || 30;
-            const trafficTime = parseInt(document.getElementById('trafficTime').value) || 45;
-            const homeAddress = document.getElementById('homeAddress').value || 'Гэр';
-            const workAddress = document.getElementById('workAddress').value || 'Ажлын байр';
+        let map;
+        let directionsService;
+        let directionsRenderer;
+        let autocompleteHome, autocompleteSchool, autocompleteWork;
+
+        function initMap() {
+            // Initialize map centered on Ulaanbaatar
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 11,
+                center: { lat: 47.9077, lng: 106.8832 } // Ulaanbaatar coordinates
+            });
+
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                draggable: true,
+                panel: null
+            });
+            directionsRenderer.setMap(map);
+
+            // Initialize autocomplete for address inputs
+            autocompleteHome = new google.maps.places.Autocomplete(
+                document.getElementById('homeAddress'),
+                { componentRestrictions: { country: 'mn' } }
+            );
             
-            const dailyLoss = (trafficTime - normalTime) * 2; // Хоёр удаа (явах, буцах)
-            const weeklyLoss = dailyLoss * 5; // 5 хоног
-            const monthlyLoss = weeklyLoss * 4; // 4 долоо хоног
-            const yearlyLoss = monthlyLoss * 12; // 12 сар
+            autocompleteSchool = new google.maps.places.Autocomplete(
+                document.getElementById('schoolAddress'),
+                { componentRestrictions: { country: 'mn' } }
+            );
             
-            const yearlyHours = Math.floor(yearlyLoss / 60);
-            const yearlyMinutes = yearlyLoss % 60;
-            
-            const resultsHTML = `
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div class="space-y-4">
-                        <div class="bg-red-50 p-4 rounded-lg">
-                            <h4 class="font-semibold text-red-800">Өдрийн алдагдал</h4>
-                            <p class="text-2xl font-bold text-red-600">${dailyLoss} минут</p>
+            autocompleteWork = new google.maps.places.Autocomplete(
+                document.getElementById('workAddress'),
+                { componentRestrictions: { country: 'mn' } }
+            );
+
+            // Add listeners for address changes
+            autocompleteHome.addListener('place_changed', updateRoute);
+            autocompleteSchool.addListener('place_changed', updateRoute);
+            autocompleteWork.addListener('place_changed', updateRoute);
+        }
+
+        function updateRoute() {
+            const homeAddress = document.getElementById('homeAddress').value;
+            const schoolAddress = document.getElementById('schoolAddress').value;
+            const workAddress = document.getElementById('workAddress').value;
+
+            if (homeAddress && schoolAddress) {
+                calculateAndDisplayRoute(homeAddress, schoolAddress, workAddress);
+            }
+        }
+
+        function calculateAndDisplayRoute(home, school, work) {
+            const waypoints = [];
+            let destination = school;
+
+            if (work && work.trim() !== '') {
+                waypoints.push({
+                    location: school,
+                    stopover: true
+                });
+                destination = work;
+            }
+
+            directionsService.route({
+                origin: home,
+                destination: destination,
+                waypoints: waypoints,
+                travelMode: google.maps.TravelMode.DRIVING,
+                drivingOptions: {
+                    departureTime: new Date(),
+                    trafficModel: google.maps.TrafficModel.BEST_GUESS
+                },
+                avoidHighways: false,
+                avoidTolls: false
+            }, (response, status) => {
+                if (status === 'OK') {
+                    directionsRenderer.setDirections(response);
+                } else {
+                    console.error('Directions request failed due to ' + status);
+                }
+            });
+        }
+
+        async function calculateRealTimeLoss() {
+            const homeAddress = document.getElementById('homeAddress').value;
+            const schoolAddress = document.getElementById('schoolAddress').value;
+            const workAddress = document.getElementById('workAddress').value;
+
+            if (!homeAddress || !schoolAddress) {
+                alert('Гэр болон сургууль/ажлын байрны хаягийг заавал оруулна уу!');
+                return;
+            }
+
+            try {
+                // Show loading
+                document.getElementById('results').classList.remove('hidden');
+                document.getElementById('resultsContent').innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p class="text-gray-600">Google Maps-аас мэдээлэл авч байна...</p>
+                    </div>
+                `;
+
+                // Calculate routes with current traffic and without traffic
+                const currentTrafficTime = await getRouteTime(homeAddress, schoolAddress, workAddress, true);
+                const normalTime = await getRouteTime(homeAddress, schoolAddress, workAddress, false);
+
+                const dailyLoss = Math.max(0, (currentTrafficTime - normalTime) * 2); // Round trip
+                const weeklyLoss = dailyLoss * 5; // 5 working days
+                const monthlyLoss = weeklyLoss * 4; // 4 weeks
+                const yearlyLoss = monthlyLoss * 12; // 12 months
+                
+                const yearlyHours = Math.floor(yearlyLoss / 60);
+                const yearlyMinutes = yearlyLoss % 60;
+                
+                const routes = workAddress && workAddress.trim() !== '' ? 
+                    `${homeAddress} → ${schoolAddress} → ${workAddress}` : 
+                    `${homeAddress} ↔ ${schoolAddress}`;
+
+                const resultsHTML = `
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-green-800">Түгжрэлгүй цаг</h4>
+                                <p class="text-2xl font-bold text-green-600">${normalTime} минут</p>
+                            </div>
+                            
+                            <div class="bg-red-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-red-800">Одоогийн түгжрэлтэй цаг</h4>
+                                <p class="text-2xl font-bold text-red-600">${currentTrafficTime} минут</p>
+                            </div>
+                            
+                            <div class="bg-orange-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-orange-800">Өдрийн алдагдал</h4>
+                                <p class="text-2xl font-bold text-orange-600">${dailyLoss} минут</p>
+                            </div>
                         </div>
                         
-                        <div class="bg-orange-50 p-4 rounded-lg">
-                            <h4 class="font-semibold text-orange-800">7 хоногийн алдагдал</h4>
-                            <p class="text-2xl font-bold text-orange-600">${weeklyLoss} минут</p>
-                            <p class="text-sm text-orange-700">${Math.floor(weeklyLoss/60)} цаг ${weeklyLoss%60} минут</p>
+                        <div class="space-y-4">
+                            <div class="bg-yellow-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-yellow-800">7 хоногийн алдагдал</h4>
+                                <p class="text-2xl font-bold text-yellow-600">${weeklyLoss} минут</p>
+                                <p class="text-sm text-yellow-700">${Math.floor(weeklyLoss/60)} цаг ${weeklyLoss%60} минут</p>
+                            </div>
+                            
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-purple-800">Сарын алдагдал</h4>
+                                <p class="text-2xl font-bold text-purple-600">${monthlyLoss} минут</p>
+                                <p class="text-sm text-purple-700">${Math.floor(monthlyLoss/60)} цаг ${monthlyLoss%60} минут</p>
+                            </div>
+                            
+                            <div class="bg-red-100 p-4 rounded-lg border-2 border-red-200">
+                                <h4 class="font-semibold text-red-800">🚨 Жилийн алдагдал</h4>
+                                <p class="text-3xl font-bold text-red-600">${yearlyHours} цаг ${yearlyMinutes} минут</p>
+                                <p class="text-sm text-red-700">Энэ нь ${Math.floor(yearlyHours/24)} өдрийн цагтай тэнцэнэ!</p>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="space-y-4">
-                        <div class="bg-yellow-50 p-4 rounded-lg">
-                            <h4 class="font-semibold text-yellow-800">Сарын алдагдал</h4>
-                            <p class="text-2xl font-bold text-yellow-600">${monthlyLoss} минут</p>
-                            <p class="text-sm text-yellow-700">${Math.floor(monthlyLoss/60)} цаг ${monthlyLoss%60} минут</p>
-                        </div>
-                        
-                        <div class="bg-red-100 p-4 rounded-lg border-2 border-red-200">
-                            <h4 class="font-semibold text-red-800">🚨 Жилийн алдагдал</h4>
-                            <p class="text-3xl font-bold text-red-600">${yearlyHours} цаг ${yearlyMinutes} минут</p>
-                            <p class="text-sm text-red-700">Энэ нь ${Math.floor(yearlyHours/24)} өдрийн цагтай тэнцэнэ!</p>
-                        </div>
+                    <div class="mt-6 bg-blue-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-blue-800 mb-2">📍 Маршрут</h4>
+                        <p class="text-blue-700">${routes}</p>
+                        <p class="text-sm text-blue-600 mt-1">Google Maps-аас жинхэнэ мэдээлэл авсан</p>
+                        <p class="text-xs text-blue-500 mt-1">Тооцоолсон цаг: ${new Date().toLocaleString('mn-MN')}</p>
                     </div>
-                </div>
+                `;
                 
-                <div class="mt-6 bg-blue-50 p-4 rounded-lg">
-                    <h4 class="font-semibold text-blue-800 mb-2">📍 Маршрут</h4>
-                    <p class="text-blue-700">${homeAddress} ↔ ${workAddress}</p>
-                    <p class="text-sm text-blue-600 mt-1">Түгжрэлгүй: ${normalTime} мин, Түгжрэлтэй: ${trafficTime} мин</p>
-                </div>
-            `;
-            
-            document.getElementById('resultsContent').innerHTML = resultsHTML;
-            document.getElementById('results').classList.remove('hidden');
-            
-            // Scroll to results
-            document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+                document.getElementById('resultsContent').innerHTML = resultsHTML;
+                document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                console.error('Error calculating route:', error);
+                document.getElementById('resultsContent').innerHTML = `
+                    <div class="bg-red-50 p-4 rounded-lg text-center">
+                        <h4 class="font-semibold text-red-800 mb-2">Алдаа гарлаа</h4>
+                        <p class="text-red-700">Маршрут тооцоолоход алдаа гарлаа. Хаягуудыг шалгаж дахин оролдоно уу.</p>
+                    </div>
+                `;
+            }
         }
-        
-        // Auto calculate on input change
-        document.getElementById('normalTime').addEventListener('input', calculateTimeLoss);
-        document.getElementById('trafficTime').addEventListener('input', calculateTimeLoss);
-        
-        // Initial calculation
-        calculateTimeLoss();
+
+        function getRouteTime(home, school, work, withTraffic) {
+            return new Promise((resolve, reject) => {
+                const waypoints = [];
+                let destination = school;
+
+                if (work && work.trim() !== '') {
+                    waypoints.push({
+                        location: school,
+                        stopover: true
+                    });
+                    destination = work;
+                }
+
+                const request = {
+                    origin: home,
+                    destination: destination,
+                    waypoints: waypoints,
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    avoidHighways: false,
+                    avoidTolls: false
+                };
+
+                if (withTraffic) {
+                    request.drivingOptions = {
+                        departureTime: new Date(),
+                        trafficModel: google.maps.TrafficModel.BEST_GUESS
+                    };
+                }
+
+                directionsService.route(request, (response, status) => {
+                    if (status === 'OK') {
+                        let totalTime = 0;
+                        response.routes[0].legs.forEach(leg => {
+                            totalTime += Math.ceil(leg.duration.value / 60); // Convert to minutes
+                        });
+                        resolve(totalTime);
+                    } else {
+                        reject(new Error('Directions request failed: ' + status));
+                    }
+                });
+            });
+        }
+
+        // Legacy function for backward compatibility
+        function calculateTimeLoss() {
+            alert('Google Maps API ашиглан жинхэнэ тооцоолол хийх товчийг ашиглана уу!');
+        }
     </script>
 </body>
 </html>
