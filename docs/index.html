@@ -257,6 +257,41 @@
                         </div>
                     </div>
                     
+                    <!-- Detailed Metrics -->
+                    <div class="mt-6 grid md:grid-cols-3 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-blue-800 mb-2">📏 Нийт зай</h4>
+                            <p class="text-xl font-bold text-blue-600" id="totalDistance">-</p>
+                            <p class="text-sm text-blue-600">Хоёр талын зам</p>
+                        </div>
+                        
+                        <div class="bg-indigo-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-indigo-800 mb-2">🏃 Дундаж хурд</h4>
+                            <p class="text-xl font-bold text-indigo-600" id="averageSpeed">-</p>
+                            <p class="text-sm text-indigo-600">Түгжрэлтэй үед</p>
+                        </div>
+                        
+                        <div class="bg-teal-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-teal-800 mb-2">⛽ Шатахуун зарцуулалт</h4>
+                            <p class="text-xl font-bold text-teal-600" id="fuelConsumption">-</p>
+                            <p class="text-sm text-teal-600">Өдрийн зарцуулалт</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 grid md:grid-cols-2 gap-4">
+                        <div class="bg-amber-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-amber-800 mb-2">💰 Шатахуун зардал</h4>
+                            <p class="text-lg font-bold text-amber-600" id="fuelCost">-</p>
+                            <p class="text-sm text-amber-600">Өдрийн зардал (3000₮/л)</p>
+                        </div>
+                        
+                        <div class="bg-emerald-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-emerald-800 mb-2">🌱 CO₂ ялгарал</h4>
+                            <p class="text-lg font-bold text-emerald-600" id="co2Emission">-</p>
+                            <p class="text-sm text-emerald-600">Өдрийн ялгарал</p>
+                        </div>
+                    </div>
+                    
                     <div class="mt-6 bg-blue-50 p-4 rounded-lg">
                         <h4 class="font-semibold text-blue-800 mb-2">📍 Маршрут</h4>
                         <p class="text-blue-700">${routes}</p>
@@ -298,28 +333,214 @@
                     waypoints: waypoints,
                     travelMode: google.maps.TravelMode.DRIVING,
                     avoidHighways: false,
-                    avoidTolls: false
-                };
-
-                if (withTraffic) {
-                    request.drivingOptions = {
+                    avoidTolls: false,
+                    drivingOptions: withTraffic ? {
                         departureTime: new Date(),
                         trafficModel: google.maps.TrafficModel.BEST_GUESS
-                    };
-                }
+                    } : {
+                        departureTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                        trafficModel: google.maps.TrafficModel.OPTIMISTIC
+                    }
+                };
 
-                directionsService.route(request, (response, status) => {
+                directionsService.route(request, (result, status) => {
                     if (status === 'OK') {
-                        let totalTime = 0;
-                        response.routes[0].legs.forEach(leg => {
-                            totalTime += Math.ceil(leg.duration.value / 60); // Convert to minutes
+                        const route = result.routes[0];
+                        let totalDistance = 0;
+                        let totalDuration = 0;
+
+                        // Calculate total distance and duration
+                        route.legs.forEach(leg => {
+                            totalDistance += leg.distance.value; // in meters
+                            totalDuration += leg.duration.value; // in seconds
                         });
-                        resolve(totalTime);
+
+                        // Convert to appropriate units
+                        const distanceKm = totalDistance / 1000; // km
+                        const durationMinutes = Math.round(totalDuration / 60); // minutes
+                        const averageSpeed = distanceKm / (durationMinutes / 60); // km/h
+
+                        resolve({
+                            duration: durationMinutes,
+                            distance: distanceKm,
+                            speed: averageSpeed,
+                            route: route
+                        });
                     } else {
-                        reject(new Error('Directions request failed: ' + status));
+                        reject('Error: ' + status);
                     }
                 });
             });
+        }
+
+        // Calculate detailed metrics
+        function calculateDetailedMetrics(routeData) {
+            const { distance, duration, speed } = routeData;
+            
+            // Round trip distance
+            const roundTripDistance = distance * 2;
+            
+            // Fuel consumption (13L per 100km for Mongolia)
+            const fuelConsumptionL = (roundTripDistance * 13) / 100;
+            
+            // Idle fuel consumption during traffic (0.6L per hour average)
+            const idleFuelL = (duration / 60) * 0.6;
+            
+            // Total fuel consumption
+            const totalFuelL = fuelConsumptionL + idleFuelL;
+            
+            // Fuel cost (3000 MNT per liter)
+            const fuelCostMNT = totalFuelL * 3000;
+            
+            // CO2 emission (2.31 kg CO2 per liter of gasoline)
+            const co2EmissionKg = totalFuelL * 2.31;
+            
+            return {
+                roundTripDistance: roundTripDistance.toFixed(1),
+                averageSpeed: speed.toFixed(1),
+                fuelConsumption: totalFuelL.toFixed(2),
+                fuelCost: Math.round(fuelCostMNT),
+                co2Emission: co2EmissionKg.toFixed(2)
+            };
+        }
+
+        // Update calculateGoogleMapsRoute to use detailed metrics
+        async function calculateGoogleMapsRoute() {
+            const homeAddress = document.getElementById('homeAddress').value;
+            const schoolAddress = document.getElementById('schoolAddress').value;
+            const workAddress = document.getElementById('workAddress').value;
+
+            if (!homeAddress || !schoolAddress) {
+                alert('Гэр болон сургууль/ажлын байрны хаягийг оруулна уу');
+                return;
+            }
+
+            try {
+                document.getElementById('results').classList.remove('hidden');
+                document.getElementById('resultsContent').innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p class="text-gray-600">Google Maps-аас мэдээлэл авч байна...</p>
+                    </div>
+                `;
+
+                // Get route data with traffic and without traffic
+                const trafficRouteData = await getRouteTime(homeAddress, schoolAddress, workAddress, true);
+                const normalRouteData = await getRouteTime(homeAddress, schoolAddress, workAddress, false);
+
+                // Calculate detailed metrics
+                const metrics = calculateDetailedMetrics(trafficRouteData);
+
+                const currentTrafficTime = trafficRouteData.duration;
+                const normalTime = normalRouteData.duration;
+
+                const dailyLoss = Math.max(0, (currentTrafficTime - normalTime) * 2); // Round trip
+                const weeklyLoss = dailyLoss * 5; // 5 working days
+                const monthlyLoss = weeklyLoss * 4; // 4 weeks
+                const yearlyLoss = monthlyLoss * 12; // 12 months
+                
+                const yearlyHours = Math.floor(yearlyLoss / 60);
+                const yearlyMinutes = yearlyLoss % 60;
+                
+                const routes = workAddress && workAddress.trim() !== '' ? 
+                    `${homeAddress} → ${schoolAddress} → ${workAddress}` : 
+                    `${homeAddress} ↔ ${schoolAddress}`;
+
+                const resultsHTML = `
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-green-800">Түгжрэлгүй цаг</h4>
+                                <p class="text-2xl font-bold text-green-600">${normalTime} минут</p>
+                            </div>
+                            
+                            <div class="bg-red-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-red-800">Одоогийн түгжрэлтэй цаг</h4>
+                                <p class="text-2xl font-bold text-red-600">${currentTrafficTime} минут</p>
+                            </div>
+                            
+                            <div class="bg-orange-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-orange-800">Өдрийн алдагдал</h4>
+                                <p class="text-2xl font-bold text-orange-600">${dailyLoss} минут</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="bg-yellow-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-yellow-800">7 хоногийн алдагдал</h4>
+                                <p class="text-2xl font-bold text-yellow-600">${weeklyLoss} минут</p>
+                                <p class="text-sm text-yellow-700">${Math.floor(weeklyLoss/60)} цаг ${weeklyLoss%60} минут</p>
+                            </div>
+                            
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-purple-800">Сарын алдагдал</h4>
+                                <p class="text-2xl font-bold text-purple-600">${monthlyLoss} минут</p>
+                                <p class="text-sm text-purple-700">${Math.floor(monthlyLoss/60)} цаг ${monthlyLoss%60} минут</p>
+                            </div>
+                            
+                            <div class="bg-red-100 p-4 rounded-lg border-2 border-red-200">
+                                <h4 class="font-semibold text-red-800">🚨 Жилийн алдагдал</h4>
+                                <p class="text-3xl font-bold text-red-600">${yearlyHours} цаг ${yearlyMinutes} минут</p>
+                                <p class="text-sm text-red-700">Энэ нь ${Math.floor(yearlyHours/24)} өдрийн цагтай тэнцэнэ!</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Detailed Metrics -->
+                    <div class="mt-6 grid md:grid-cols-3 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-blue-800 mb-2">📏 Нийт зай</h4>
+                            <p class="text-xl font-bold text-blue-600">${metrics.roundTripDistance} км</p>
+                            <p class="text-sm text-blue-600">Хоёр талын зам</p>
+                        </div>
+                        
+                        <div class="bg-indigo-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-indigo-800 mb-2">🏃 Дундаж хурд</h4>
+                            <p class="text-xl font-bold text-indigo-600">${metrics.averageSpeed} км/ц</p>
+                            <p class="text-sm text-indigo-600">Түгжрэлтэй үед</p>
+                        </div>
+                        
+                        <div class="bg-teal-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-teal-800 mb-2">⛽ Шатахуун зарцуулалт</h4>
+                            <p class="text-xl font-bold text-teal-600">${metrics.fuelConsumption} л</p>
+                            <p class="text-sm text-teal-600">Өдрийн зарцуулалт</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 grid md:grid-cols-2 gap-4">
+                        <div class="bg-amber-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-amber-800 mb-2">💰 Шатахуун зардал</h4>
+                            <p class="text-lg font-bold text-amber-600">${metrics.fuelCost.toLocaleString()} ₮</p>
+                            <p class="text-sm text-amber-600">Өдрийн зардал (3000₮/л)</p>
+                        </div>
+                        
+                        <div class="bg-emerald-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-emerald-800 mb-2">🌱 CO₂ ялгарал</h4>
+                            <p class="text-lg font-bold text-emerald-600">${metrics.co2Emission} кг</p>
+                            <p class="text-sm text-emerald-600">Өдрийн ялгарал</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 bg-blue-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-blue-800 mb-2">📍 Маршрут</h4>
+                        <p class="text-blue-700">${routes}</p>
+                        <p class="text-sm text-blue-600 mt-1">Google Maps-аас жинхэнэ мэдээлэл авсан</p>
+                        <p class="text-xs text-blue-500 mt-1">Тооцоолсон цаг: ${new Date().toLocaleString('mn-MN')}</p>
+                    </div>
+                `;
+                
+                document.getElementById('resultsContent').innerHTML = resultsHTML;
+                document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                console.error('Error calculating route:', error);
+                document.getElementById('resultsContent').innerHTML = `
+                    <div class="bg-red-50 p-4 rounded-lg text-center">
+                        <h4 class="font-semibold text-red-800 mb-2">Алдаа гарлаа</h4>
+                        <p class="text-red-700">Маршрут тооцоолоход алдаа гарлаа. Хаягуудыг шалгаж дахин оролдоно уу.</p>
+                    </div>
+                `;
+            }
         }
 
         // Legacy function for backward compatibility
