@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Түгжрэлд Алдагдсан Цаг Тооцоолуур</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-blue-600 mb-4">Түгжрэлд Алдагдсан Цаг Тооцоолуур</h1>
+                <p class="text-gray-600 text-lg">Өдөр бүр түгжрэлд хэр их цаг алдаж байгаагаа олж мэдээд, жилийн хэмжээнд хэр их болохыг харна уу</p>
+            </div>
+
+            <!-- Calculator Card -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">🚗 Маршрутын мэдээлэл оруулна уу</h2>
+                
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Гэрийн хаяг</label>
+                        <input type="text" id="homeAddress" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Гэрийн хаягаа оруулна уу">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ажлын байр</label>
+                        <input type="text" id="workAddress" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ажлын байрны хаягаа оруулна уу">
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Түгжрэлгүй цаг (минут)</label>
+                        <input type="number" id="normalTime" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="30" value="30">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Түгжрэлтэй цаг (минут)</label>
+                        <input type="number" id="trafficTime" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="45" value="45">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Зай (км) - заавал биш</label>
+                        <input type="number" id="distance" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="15.5">
+                    </div>
+                </div>
+
+                <button onclick="calculateTimeLoss()" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition duration-200">
+                    🧮 Цагийн алдагдлыг тооцоолох
+                </button>
+            </div>
+
+            <!-- Results -->
+            <div id="results" class="hidden bg-white rounded-lg shadow-lg p-6 mb-8">
+                <h3 class="text-2xl font-semibold mb-4 text-gray-800">📊 Үр дүн</h3>
+                <div id="resultsContent"></div>
+            </div>
+
+            <!-- Info Cards -->
+            <div class="grid md:grid-cols-2 gap-6 mb-8">
+                <div class="bg-blue-50 rounded-lg p-6">
+                    <h3 class="text-xl font-semibold text-blue-800 mb-3">📈 Хэрхэн ашиглах вэ?</h3>
+                    <ol class="list-decimal list-inside text-blue-700 space-y-2">
+                        <li>Гэр болон ажлын байрны хаягийг оруулна уу</li>
+                        <li>Түгжрэлгүй болон түгжрэлтэй цагийг минутаар оруулна уу</li>
+                        <li>Тооцоолох товчийг дарна уу</li>
+                        <li>Өдрийн, сарын, жилийн алдагдлыг харна уу</li>
+                    </ol>
+                </div>
+                
+                <div class="bg-yellow-50 rounded-lg p-6">
+                    <h3 class="text-xl font-semibold text-yellow-800 mb-3">💡 Зөвлөмж</h3>
+                    <p class="text-yellow-700 mb-2">Хамгийн сайн үр дүнгийн тулд:</p>
+                    <ul class="list-disc list-inside text-yellow-700 space-y-1">
+                        <li>Өглөөний цагийн түгжрэлийг харгалзана уу</li>
+                        <li>Орой буцах цагийн түгжрэлийг мөн тооцоолно уу</li>
+                        <li>Өөр замын сонголт байгаа эсэхийг шалгана уу</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Full Stack Version Link -->
+            <div class="bg-green-50 rounded-lg p-6 text-center">
+                <h3 class="text-xl font-semibold text-green-800 mb-2">🚀 Бүрэн хувилбар</h3>
+                <p class="text-green-700 mb-4">Database хадгалалт, түүх харах, статистик зэрэг бүрэн функцтэй хувилбарыг энд үзнэ үү:</p>
+                <a href="https://60h5imclz937.manus.space" target="_blank" class="inline-block bg-green-600 text-white py-2 px-6 rounded-lg font-semibold hover:bg-green-700 transition duration-200">
+                    Бүрэн хувилбар үзэх
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function calculateTimeLoss() {
+            const normalTime = parseInt(document.getElementById('normalTime').value) || 30;
+            const trafficTime = parseInt(document.getElementById('trafficTime').value) || 45;
+            const homeAddress = document.getElementById('homeAddress').value || 'Гэр';
+            const workAddress = document.getElementById('workAddress').value || 'Ажлын байр';
+            
+            const dailyLoss = (trafficTime - normalTime) * 2; // Хоёр удаа (явах, буцах)
+            const weeklyLoss = dailyLoss * 5; // 5 хоног
+            const monthlyLoss = weeklyLoss * 4; // 4 долоо хоног
+            const yearlyLoss = monthlyLoss * 12; // 12 сар
+            
+            const yearlyHours = Math.floor(yearlyLoss / 60);
+            const yearlyMinutes = yearlyLoss % 60;
+            
+            const resultsHTML = `
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="bg-red-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-red-800">Өдрийн алдагдал</h4>
+                            <p class="text-2xl font-bold text-red-600">${dailyLoss} минут</p>
+                        </div>
+                        
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-orange-800">7 хоногийн алдагдал</h4>
+                            <p class="text-2xl font-bold text-orange-600">${weeklyLoss} минут</p>
+                            <p class="text-sm text-orange-700">${Math.floor(weeklyLoss/60)} цаг ${weeklyLoss%60} минут</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-yellow-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-yellow-800">Сарын алдагдал</h4>
+                            <p class="text-2xl font-bold text-yellow-600">${monthlyLoss} минут</p>
+                            <p class="text-sm text-yellow-700">${Math.floor(monthlyLoss/60)} цаг ${monthlyLoss%60} минут</p>
+                        </div>
+                        
+                        <div class="bg-red-100 p-4 rounded-lg border-2 border-red-200">
+                            <h4 class="font-semibold text-red-800">🚨 Жилийн алдагдал</h4>
+                            <p class="text-3xl font-bold text-red-600">${yearlyHours} цаг ${yearlyMinutes} минут</p>
+                            <p class="text-sm text-red-700">Энэ нь ${Math.floor(yearlyHours/24)} өдрийн цагтай тэнцэнэ!</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 bg-blue-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-blue-800 mb-2">📍 Маршрут</h4>
+                    <p class="text-blue-700">${homeAddress} ↔ ${workAddress}</p>
+                    <p class="text-sm text-blue-600 mt-1">Түгжрэлгүй: ${normalTime} мин, Түгжрэлтэй: ${trafficTime} мин</p>
+                </div>
+            `;
+            
+            document.getElementById('resultsContent').innerHTML = resultsHTML;
+            document.getElementById('results').classList.remove('hidden');
+            
+            // Scroll to results
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Auto calculate on input change
+        document.getElementById('normalTime').addEventListener('input', calculateTimeLoss);
+        document.getElementById('trafficTime').addEventListener('input', calculateTimeLoss);
+        
+        // Initial calculation
+        calculateTimeLoss();
+    </script>
+</body>
+</html>
+
