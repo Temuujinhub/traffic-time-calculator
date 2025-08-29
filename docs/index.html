@@ -375,16 +375,32 @@
 
         // Calculate detailed metrics
         function calculateDetailedMetrics(routeData) {
-            const { distance, duration, speed } = routeData;
+            // Ensure routeData exists and has required properties
+            if (!routeData || typeof routeData !== 'object') {
+                return {
+                    roundTripDistance: '0.0',
+                    averageSpeed: '0.0',
+                    fuelConsumption: '0.00',
+                    fuelCost: 0,
+                    co2Emission: '0.00'
+                };
+            }
+
+            const { distance = 0, duration = 0, speed = 0 } = routeData;
+            
+            // Ensure all values are numbers
+            const distanceKm = parseFloat(distance) || 0;
+            const durationMinutes = parseFloat(duration) || 0;
+            const speedKmh = parseFloat(speed) || 0;
             
             // Round trip distance
-            const roundTripDistance = distance * 2;
+            const roundTripDistance = distanceKm * 2;
             
             // Fuel consumption (13L per 100km for Mongolia)
             const fuelConsumptionL = (roundTripDistance * 13) / 100;
             
             // Idle fuel consumption during traffic (0.6L per hour average)
-            const idleFuelL = (duration / 60) * 0.6;
+            const idleFuelL = (durationMinutes / 60) * 0.6;
             
             // Total fuel consumption
             const totalFuelL = fuelConsumptionL + idleFuelL;
@@ -397,7 +413,7 @@
             
             return {
                 roundTripDistance: roundTripDistance.toFixed(1),
-                averageSpeed: speed.toFixed(1),
+                averageSpeed: speedKmh.toFixed(1),
                 fuelConsumption: totalFuelL.toFixed(2),
                 fuelCost: Math.round(fuelCostMNT),
                 co2Emission: co2EmissionKg.toFixed(2)
@@ -428,11 +444,12 @@
                 const trafficRouteData = await getRouteTime(homeAddress, schoolAddress, workAddress, true);
                 const normalRouteData = await getRouteTime(homeAddress, schoolAddress, workAddress, false);
 
+                // Extract duration values correctly
+                const currentTrafficTime = trafficRouteData.duration || 0;
+                const normalTime = normalRouteData.duration || 0;
+
                 // Calculate detailed metrics
                 const metrics = calculateDetailedMetrics(trafficRouteData);
-
-                const currentTrafficTime = trafficRouteData.duration;
-                const normalTime = normalRouteData.duration;
 
                 const dailyLoss = Math.max(0, (currentTrafficTime - normalTime) * 2); // Round trip
                 const weeklyLoss = dailyLoss * 5; // 5 working days
@@ -538,6 +555,7 @@
                     <div class="bg-red-50 p-4 rounded-lg text-center">
                         <h4 class="font-semibold text-red-800 mb-2">Алдаа гарлаа</h4>
                         <p class="text-red-700">Маршрут тооцоолоход алдаа гарлаа. Хаягуудыг шалгаж дахин оролдоно уу.</p>
+                        <p class="text-xs text-red-600 mt-2">Алдаа: ${error.message}</p>
                     </div>
                 `;
             }
