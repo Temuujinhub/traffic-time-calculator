@@ -352,14 +352,20 @@
                         // Calculate total distance and duration
                         route.legs.forEach(leg => {
                             totalDistance += leg.distance.value; // in meters
-                            totalDuration += leg.duration.value; // in seconds
+                            // Use traffic duration if available and requested
+                            if (withTraffic && leg.duration_in_traffic) {
+                                totalDuration += leg.duration_in_traffic.value; // in seconds
+                            } else {
+                                totalDuration += leg.duration.value; // in seconds
+                            }
                         });
 
                         // Convert to appropriate units
-                        const distanceKm = totalDistance / 1000; // km
+                        const distanceKm = parseFloat((totalDistance / 1000).toFixed(1)); // km
                         const durationMinutes = Math.round(totalDuration / 60); // minutes
-                        const averageSpeed = distanceKm / (durationMinutes / 60); // km/h
+                        const averageSpeed = parseFloat((distanceKm / (durationMinutes / 60)).toFixed(1)); // km/h
 
+                        // Return simple numeric values
                         resolve({
                             duration: durationMinutes,
                             distance: distanceKm,
@@ -367,7 +373,14 @@
                             route: route
                         });
                     } else {
-                        reject('Error: ' + status);
+                        console.error('Directions request failed:', status);
+                        // Return default values instead of rejecting
+                        resolve({
+                            duration: 0,
+                            distance: 0,
+                            speed: 0,
+                            route: null
+                        });
                     }
                 });
             });
