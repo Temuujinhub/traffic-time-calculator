@@ -202,8 +202,16 @@
                 `;
 
                 // Calculate routes with current traffic and without traffic
-                const currentTrafficTime = await getRouteTime(homeAddress, schoolAddress, workAddress, true);
-                const normalTime = await getRouteTime(homeAddress, schoolAddress, workAddress, false);
+                const currentTrafficData = await getRouteTime(homeAddress, schoolAddress, workAddress, true);
+                const normalTrafficData = await getRouteTime(homeAddress, schoolAddress, workAddress, false);
+
+                // Extract duration values properly
+                const currentTrafficTime = currentTrafficData.duration || 0;
+                const normalTime = normalTrafficData.duration || 0;
+                
+                // Extract route data for detailed metrics
+                const routeDistance = currentTrafficData.distance || 0;
+                const routeSpeed = currentTrafficData.speed || 0;
 
                 const dailyLoss = Math.max(0, (currentTrafficTime - normalTime) * 2); // Round trip
                 const weeklyLoss = dailyLoss * 5; // 5 working days
@@ -216,6 +224,14 @@
                 const routes = workAddress && workAddress.trim() !== '' ? 
                     `${homeAddress} → ${schoolAddress} → ${workAddress}` : 
                     `${homeAddress} ↔ ${schoolAddress}`;
+
+                // Calculate detailed metrics
+                const detailedMetrics = calculateDetailedMetrics({
+                    distance: routeDistance,
+                    speed: routeSpeed,
+                    duration: currentTrafficTime,
+                    trafficDelay: dailyLoss
+                });
 
                 const resultsHTML = `
                     <div class="grid md:grid-cols-2 gap-6">
@@ -301,6 +317,16 @@
                 `;
                 
                 document.getElementById('resultsContent').innerHTML = resultsHTML;
+                
+                // Update detailed metrics
+                if (detailedMetrics) {
+                    document.getElementById('totalDistance').textContent = detailedMetrics.totalDistance || '-';
+                    document.getElementById('averageSpeed').textContent = detailedMetrics.averageSpeed || '-';
+                    document.getElementById('fuelConsumption').textContent = detailedMetrics.fuelConsumption || '-';
+                    document.getElementById('fuelCost').textContent = detailedMetrics.fuelCost || '-';
+                    document.getElementById('co2Emission').textContent = detailedMetrics.co2Emission || '-';
+                }
+                
                 document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
 
             } catch (error) {
