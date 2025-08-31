@@ -26,10 +26,14 @@ jobs:
       with:
         node-version: '20'
 
+    - name: Clear npm cache
+      run: npm cache clean --force
+
     - name: Install dependencies
       run: |
         cd frontend
-        npm install
+        rm -rf node_modules package-lock.json
+        npm install --legacy-peer-deps
 
     - name: Build
       run: |

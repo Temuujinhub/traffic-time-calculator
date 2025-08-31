@@ -244,7 +244,7 @@ const GoogleMapsTrafficCalculator = () => {
         return;
       }
 
-      // Calculate time losses using ONLY traffic time (peak hours)
+      // Calculate time using ONLY traffic time (peak hours)
       // Morning: Home → School → Work (peak traffic)
       // Evening: Work → School → Home (peak traffic)
       const morningTrafficTime = currentTrafficTime; // Өглөөний түгжрэлтэй цаг
@@ -253,10 +253,10 @@ const GoogleMapsTrafficCalculator = () => {
       // Daily total time spent in traffic (2 trips in peak hours)
       const dailyTrafficTime = morningTrafficTime + eveningTrafficTime;
       
-      // Calculate what time would be without traffic
+      // Daily time if there was no traffic (for comparison only)
       const dailyNormalTime = normalTime * 2; // 2 trips without traffic
       
-      // Daily time lost due to traffic
+      // Daily time lost due to traffic (difference between traffic time and normal time)
       const dailyLoss = Math.max(0, dailyTrafficTime - dailyNormalTime);
       
       // Calculate weekly loss (5 working days)
@@ -271,19 +271,19 @@ const GoogleMapsTrafficCalculator = () => {
       const yearlyHours = Math.floor(yearlyLoss / 60);
       const yearlyMinutes = yearlyLoss % 60;
       
-      // Calculate fuel consumption and cost using TRAFFIC TIME distance
+      // Calculate fuel consumption using ACTUAL traffic time distance
       const dailyDistanceKm = routeDistance * 2; // Round trip distance
       const monthlyDistanceKm = dailyDistanceKm * 22; // 22 working days
       const yearlyDistanceKm = dailyDistanceKm * 250; // 250 working days
       
-      // Fuel consumption (8L/100km average for UB conditions)
+      // Total fuel consumption (8L/100km average for UB conditions with traffic)
       const fuelConsumptionLitersPerYear = (yearlyDistanceKm * 8) / 100;
       const fuelCostPerLiter = 2500; // MNT
-      const annualFuelCost = fuelConsumptionLitersPerYear * fuelCostPerLiter;
+      const totalAnnualFuelCost = fuelConsumptionLitersPerYear * fuelCostPerLiter;
       
-      // Calculate EXTRA fuel cost due to traffic (time spent idling/slow driving)
-      const trafficDelayRatio = dailyLoss / dailyNormalTime; // How much extra time due to traffic
-      const extraFuelDueToTraffic = annualFuelCost * trafficDelayRatio; // Extra fuel cost due to traffic delays
+      // Calculate monthly and daily fuel costs
+      const monthlyFuelCost = totalAnnualFuelCost / 12;
+      const dailyFuelCost = totalAnnualFuelCost / 250; // working days only
       
       const routes = addresses.work && addresses.work.trim() !== '' ? 
         `${addresses.home} → ${addresses.school} → ${addresses.work}` : 
@@ -310,8 +310,9 @@ const GoogleMapsTrafficCalculator = () => {
         
         // Fuel and cost data
         fuelConsumption: Math.round(fuelConsumptionLitersPerYear),
-        annualFuelCost: Math.round(annualFuelCost),
-        extraFuelDueToTraffic: Math.round(extraFuelDueToTraffic),
+        totalAnnualFuelCost: Math.round(totalAnnualFuelCost),
+        monthlyFuelCost: Math.round(monthlyFuelCost),
+        dailyFuelCost: Math.round(dailyFuelCost),
         
         // Route info
         routes,
@@ -330,7 +331,16 @@ const GoogleMapsTrafficCalculator = () => {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="text-center">
         <h1 className="text-4xl font-bold text-blue-600 mb-4">Түгжрэлд Алдагдсан Цаг Тооцоолуур</h1>
-        <p className="text-gray-600 text-lg">Google Maps API ашиглан жинхэнэ түгжрэлийн мэдээлэл авч тооцоолно</p>
+        <p className="text-gray-600 text-lg mb-2">Google Maps API ашиглан жинхэнэ түгжрэлийн мэдээлэл авч тооцоолно</p>
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-left max-w-4xl mx-auto">
+          <h3 className="font-semibold text-yellow-800 mb-2">📋 Тооцоололын логик:</h3>
+          <ul className="text-sm text-yellow-700 space-y-1">
+            <li>• <strong>Өглөө:</strong> Гэр → Сургууль → Ажил (түгжрэлтэй цагт)</li>
+            <li>• <strong>Орой:</strong> Ажил → Сургууль → Гэр (түгжрэлтэй цагт)</li>
+            <li>• <strong>Тооцоолол:</strong> Зөвхөн түгжрэлтэй цагаар тооцно (Normal time хасахгүй)</li>
+            <li>• <strong>Зардал:</strong> 3 байршлын хоорондын нийт замын шатахуун зардал</li>
+          </ul>
+        </div>
       </div>
 
       <Card>
@@ -458,15 +468,21 @@ const GoogleMapsTrafficCalculator = () => {
                 </div>
                 
                 <div className="bg-emerald-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-emerald-800">💰 Жилийн шатахуун зардал</h4>
-                  <p className="text-2xl font-bold text-emerald-600">{results.annualFuelCost.toLocaleString()} ₮</p>
+                  <h4 className="font-semibold text-emerald-800">💰 Жилийн нийт шатахуун зардал</h4>
+                  <p className="text-2xl font-bold text-emerald-600">{results.totalAnnualFuelCost.toLocaleString()} ₮</p>
                   <p className="text-sm text-emerald-700">2500₮/литрээр тооцсон</p>
                 </div>
                 
                 <div className="bg-rose-50 p-4 rounded-lg border-2 border-rose-200">
-                  <h4 className="font-semibold text-rose-800">🔥 Түгжрэлд зарцуулсан нэмэлт мөнгө</h4>
-                  <p className="text-3xl font-bold text-rose-600">{results.extraFuelDueToTraffic.toLocaleString()} ₮</p>
-                  <p className="text-sm text-rose-700">Зөвхөн түгжрэлийн улмаас алдсан мөнгө!</p>
+                  <h4 className="font-semibold text-rose-800">� Сарын шатахуун зардал</h4>
+                  <p className="text-3xl font-bold text-rose-600">{results.monthlyFuelCost.toLocaleString()} ₮</p>
+                  <p className="text-sm text-rose-700">22 ажлын өдрийн нийт зардал</p>
+                </div>
+                
+                <div className="bg-amber-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-amber-800">📊 Өдрийн шатахуун зардал</h4>
+                  <p className="text-2xl font-bold text-amber-600">{results.dailyFuelCost.toLocaleString()} ₮</p>
+                  <p className="text-sm text-amber-700">Өдөр бүрийн зардал</p>
                 </div>
                 
                 <div className="bg-cyan-50 p-4 rounded-lg">
