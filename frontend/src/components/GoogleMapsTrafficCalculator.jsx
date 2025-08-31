@@ -29,7 +29,8 @@ const GoogleMapsTrafficCalculator = () => {
       }
 
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyD_RxGFjYwvqoDIq17ZMhdLcChy0tTTrnU&libraries=places&callback=initMap`;
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyD_RxGFjYwvqoDIq17ZMhdLcChy0tTTrnU';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
       script.async = true;
       script.defer = true;
       
@@ -154,7 +155,11 @@ const GoogleMapsTrafficCalculator = () => {
         if (status === 'OK') {
           let totalTime = 0;
           response.routes[0].legs.forEach(leg => {
-            totalTime += Math.ceil(leg.duration.value / 60); // Convert to minutes
+            // Use duration_in_traffic if available (for traffic-aware requests), otherwise duration
+            const durationValue = withTraffic && leg.duration_in_traffic 
+              ? leg.duration_in_traffic.value 
+              : leg.duration.value;
+            totalTime += Math.ceil(durationValue / 60); // Convert to minutes
           });
           resolve(totalTime);
         } else {
@@ -184,6 +189,14 @@ const GoogleMapsTrafficCalculator = () => {
       // Calculate routes with current traffic and without traffic
       const currentTrafficTime = await getRouteTime(addresses.home, addresses.school, addresses.work, true);
       const normalTime = await getRouteTime(addresses.home, addresses.school, addresses.work, false);
+
+      // Debug log
+      console.log('Traffic time:', currentTrafficTime, 'Normal time:', normalTime);
+
+      if (currentTrafficTime === 0 || normalTime === 0) {
+        setError('Маршрут олдсонгүй. Хаягуудыг шалгаад дахин оролдоно уу.');
+        return;
+      }
 
       const dailyLoss = Math.max(0, (currentTrafficTime - normalTime) * 2); // Round trip
       const weeklyLoss = dailyLoss * 5; // 5 working days

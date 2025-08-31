@@ -133,7 +133,11 @@ const TrafficCalculator = ({ onCalculationComplete }) => {
       directionsRenderer.current.setDirections(trafficResult);
 
       // Calculate time differences
-      const trafficDuration = trafficResult.routes[0].legs.reduce((total, leg) => total + leg.duration_in_traffic.value, 0);
+      const trafficDuration = trafficResult.routes[0].legs.reduce((total, leg) => {
+        // Use duration_in_traffic if available, otherwise fall back to duration
+        const duration = leg.duration_in_traffic ? leg.duration_in_traffic.value : leg.duration.value;
+        return total + duration;
+      }, 0);
       const normalDuration = normalResult.routes[0].legs.reduce((total, leg) => total + leg.duration.value, 0);
       const distance = trafficResult.routes[0].legs.reduce((total, leg) => total + leg.distance.value, 0);
 
