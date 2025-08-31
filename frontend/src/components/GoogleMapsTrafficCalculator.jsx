@@ -199,12 +199,20 @@ const GoogleMapsTrafficCalculator = () => {
       }
 
       const dailyLoss = Math.max(0, (currentTrafficTime - normalTime) * 2); // Round trip
-      const weeklyLoss = dailyLoss * 5; // 5 working days
-      const monthlyLoss = weeklyLoss * 4; // 4 weeks
-      const yearlyLoss = monthlyLoss * 12; // 12 months
+      const weeklyLoss = dailyLoss * 5; // 5 working days  
+      const monthlyLoss = dailyLoss * 22; // 22 working days per month
+      const yearlyLoss = dailyLoss * 250; // Approximately 250 working days per year
       
       const yearlyHours = Math.floor(yearlyLoss / 60);
       const yearlyMinutes = yearlyLoss % 60;
+      
+      // Calculate fuel consumption and cost estimates
+      const estimatedDistanceKm = 15; // Average distance estimate for UB
+      const dailyDistanceKm = estimatedDistanceKm * 2; // Round trip
+      const yearlyDistanceKm = dailyDistanceKm * 250; // Working days
+      const fuelConsumptionL = (yearlyDistanceKm * 8) / 100; // 8L/100km average consumption
+      const fuelCostPerLiter = 2500; // MNT
+      const annualFuelCost = fuelConsumptionL * fuelCostPerLiter;
       
       const routes = addresses.work && addresses.work.trim() !== '' ? 
         `${addresses.home} → ${addresses.school} → ${addresses.work}` : 
@@ -219,6 +227,9 @@ const GoogleMapsTrafficCalculator = () => {
         yearlyLoss,
         yearlyHours,
         yearlyMinutes,
+        fuelConsumption: Math.round(fuelConsumptionL),
+        annualFuelCost: Math.round(annualFuelCost),
+        estimatedDistanceKm,
         routes,
         calculatedAt: new Date().toLocaleString('mn-MN')
       });
@@ -316,41 +327,62 @@ const GoogleMapsTrafficCalculator = () => {
             <CardTitle className="text-2xl">📊 Үр дүн</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
               <div className="space-y-4">
                 <div className="bg-green-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-green-800">Түгжрэлгүй цаг</h4>
+                  <h4 className="font-semibold text-green-800">Түгжрэлгүй цаг (нэг талдаа)</h4>
                   <p className="text-2xl font-bold text-green-600">{results.normalTime} минут</p>
                 </div>
                 
                 <div className="bg-red-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-red-800">Одоогийн түгжрэлтэй цаг</h4>
+                  <h4 className="font-semibold text-red-800">Түгжрэлтэй цаг (нэг талдаа)</h4>
                   <p className="text-2xl font-bold text-red-600">{results.currentTrafficTime} минут</p>
                 </div>
                 
                 <div className="bg-orange-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-orange-800">Өдрийн алдагдал</h4>
+                  <h4 className="font-semibold text-orange-800">Өдрийн алдагдал (2 удаа)</h4>
                   <p className="text-2xl font-bold text-orange-600">{results.dailyLoss} минут</p>
+                  <p className="text-sm text-orange-700">Өглөө + орой</p>
                 </div>
               </div>
               
               <div className="space-y-4">
                 <div className="bg-yellow-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-yellow-800">7 хоногийн алдагдал</h4>
+                  <h4 className="font-semibold text-yellow-800">7 хоногийн алдагдал (5 ажлын өдөр)</h4>
                   <p className="text-2xl font-bold text-yellow-600">{results.weeklyLoss} минут</p>
                   <p className="text-sm text-yellow-700">{Math.floor(results.weeklyLoss/60)} цаг {results.weeklyLoss%60} минут</p>
                 </div>
                 
                 <div className="bg-purple-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-purple-800">Сарын алдагдал</h4>
+                  <h4 className="font-semibold text-purple-800">Сарын алдагдал (22 ажлын өдөр)</h4>
                   <p className="text-2xl font-bold text-purple-600">{results.monthlyLoss} минут</p>
                   <p className="text-sm text-purple-700">{Math.floor(results.monthlyLoss/60)} цаг {results.monthlyLoss%60} минут</p>
                 </div>
                 
                 <div className="bg-red-100 p-4 rounded-lg border-2 border-red-200">
-                  <h4 className="font-semibold text-red-800">🚨 Жилийн алдагдал</h4>
+                  <h4 className="font-semibold text-red-800">🚨 Жилийн алдагдал (250 ажлын өдөр)</h4>
                   <p className="text-3xl font-bold text-red-600">{results.yearlyHours} цаг {results.yearlyMinutes} минут</p>
                   <p className="text-sm text-red-700">Энэ нь {Math.floor(results.yearlyHours/24)} өдрийн цагтай тэнцэнэ!</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-indigo-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-indigo-800">⛽ Жилийн шатахуун зарцуулалт</h4>
+                  <p className="text-2xl font-bold text-indigo-600">{results.fuelConsumption} литр</p>
+                  <p className="text-sm text-indigo-700">8л/100км-ээр тооцсон</p>
+                </div>
+                
+                <div className="bg-emerald-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-emerald-800">💰 Жилийн шатахуун зардал</h4>
+                  <p className="text-2xl font-bold text-emerald-600">{results.annualFuelCost.toLocaleString()} ₮</p>
+                  <p className="text-sm text-emerald-700">2500₮/литрээр тооцсон</p>
+                </div>
+                
+                <div className="bg-cyan-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-cyan-800">🛣️ Жилийн зам</h4>
+                  <p className="text-2xl font-bold text-cyan-600">{(results.estimatedDistanceKm * 2 * 250).toLocaleString()} км</p>
+                  <p className="text-sm text-cyan-700">Ойролцоогоор {results.estimatedDistanceKm}км-ийн зам</p>
                 </div>
               </div>
             </div>
