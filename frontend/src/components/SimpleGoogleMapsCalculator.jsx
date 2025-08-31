@@ -157,10 +157,10 @@ const GoogleMapsTrafficCalculator = () => {
             normalTimeMinutes = trafficTimeMinutes; // Use traffic time as fallback
           }
 
-          // If traffic time equals normal time, simulate peak hour traffic (25% increase)
+          // If traffic time equals normal time, simulate peak hour traffic (50% increase for Mongolia)
           if (trafficTimeMinutes === normalTimeMinutes && normalTimeMinutes > 0) {
-            trafficTimeMinutes = Math.round(normalTimeMinutes * 1.25);
-            console.log(`Simulating peak hour traffic: ${normalTimeMinutes}min → ${trafficTimeMinutes}min (+25%)`);
+            trafficTimeMinutes = Math.round(normalTimeMinutes * 1.5);
+            console.log(`Simulating Mongolia peak hour traffic: ${normalTimeMinutes}min → ${trafficTimeMinutes}min (+50%)`);
           }
 
           if (leg.distance) {
@@ -234,14 +234,18 @@ const GoogleMapsTrafficCalculator = () => {
     setError('');
 
     try {
-      // Create departure times for morning rush hour (8 AM) and evening rush hour (6 PM)
+      // Create departure times for morning rush hour (7:30 AM) and evening rush hour (5:30 PM)
       const morningRushHour = new Date();
-      morningRushHour.setHours(8, 0, 0, 0);
+      morningRushHour.setHours(7, 30, 0, 0);
       
       const eveningRushHour = new Date();
-      eveningRushHour.setHours(18, 0, 0, 0);
+      eveningRushHour.setHours(17, 30, 0, 0);
 
       console.log('Starting calculations with addresses:', addresses);
+      console.log('Rush hour times:', {
+        morning: morningRushHour.toLocaleTimeString(),
+        evening: eveningRushHour.toLocaleTimeString()
+      });
 
       // Calculate morning route: Home -> School -> Work (or just Home -> School if no work address)
       let morningResults = [];
@@ -325,8 +329,8 @@ const GoogleMapsTrafficCalculator = () => {
       const totalDailyTrafficTime = totalMorningTrafficTime + totalEveningTrafficTime;
       const totalDailyNormalTime = totalMorningNormalTime + totalEveningNormalTime;
 
-      // Calculate daily loss: difference between traffic time and normal time
-      const dailyLoss = Math.max(0, totalDailyTrafficTime - totalDailyNormalTime);
+      // Daily loss is the TOTAL traffic time, not the difference
+      const dailyLoss = totalDailyTrafficTime;
 
       console.log('Daily calculation summary:', {
         totalDailyTrafficTime,
@@ -345,9 +349,16 @@ const GoogleMapsTrafficCalculator = () => {
       const yearlyHours = Math.floor(yearlyLoss / 60);
       const yearlyMinutes = yearlyLoss % 60;
 
-      // Calculate fuel consumption and costs
-      const dailyDistanceKm = totalDistance;
+      // Calculate fuel consumption and costs  
+      const dailyDistanceKm = totalDistance; // This already includes both directions
       const yearlyDistanceKm = dailyDistanceKm * 250;
+      
+      console.log('Distance calculation:', {
+        totalDistance,
+        dailyDistanceKm, 
+        yearlyDistanceKm
+      });
+      
       const fuelConsumptionPer100km = 8; // 8 liters per 100km
       const fuelConsumption = Math.round((yearlyDistanceKm / 100) * fuelConsumptionPer100km);
       
@@ -366,8 +377,8 @@ const GoogleMapsTrafficCalculator = () => {
         yearlyHours: yearlyHours,
         yearlyMinutes: yearlyMinutes,
         routes: routes,
-        routeDistance: parseFloat(totalDistance.toFixed(1)),
-        dailyDistanceKm: parseFloat(dailyDistanceKm.toFixed(1)),
+        routeDistance: parseFloat((totalDistance / 2).toFixed(1)), // One way distance
+        dailyDistanceKm: parseFloat(dailyDistanceKm.toFixed(1)), // Round trip distance
         yearlyDistanceKm: Math.round(yearlyDistanceKm),
         fuelConsumption: fuelConsumption,
         totalAnnualFuelCost: totalAnnualFuelCost,
