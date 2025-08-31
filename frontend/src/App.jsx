@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import SimpleGoogleMapsCalculator from './components/SimpleGoogleMapsCalculator';
-import SimpleTrafficCalculator from './components/SimpleTrafficCalculator';
-import CalculationsTable from './components/CalculationsTable';
+import SimpleTrafficCalculatorNew from './components/SimpleTrafficCalculatorNew';
+import CalculationsTableNew from './components/CalculationsTableNew';
 import './App.css';
 
 function App() {
@@ -95,11 +95,11 @@ function App() {
         )}
         
         {activeTab === 'calculator' && (
-          <SimpleTrafficCalculator onCalculationComplete={handleCalculationComplete} />
+          <SimpleTrafficCalculatorNew onCalculationComplete={handleCalculationComplete} />
         )}
         
         {activeTab === 'history' && (
-          <CalculationsTable refreshTrigger={refreshTrigger} />
+          <CalculationsTableNew refreshTrigger={refreshTrigger} />
         )}
       </div>
     </div>
