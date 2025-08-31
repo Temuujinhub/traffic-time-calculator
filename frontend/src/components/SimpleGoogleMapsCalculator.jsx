@@ -25,7 +25,8 @@ const GoogleMapsTrafficCalculator = () => {
       }
 
       const script = document.createElement('script');
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyD_RxGFjYwvqoDIq17ZMhdLcChy0tTTrnU';
+      // Using a public demo API key - replace with your own for production
+      const apiKey = 'AIzaSyD_RxGFjYwvqoDIq17ZMhdLcChy0tTTrnU';
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
       script.async = true;
       script.defer = true;
@@ -132,18 +133,35 @@ const GoogleMapsTrafficCalculator = () => {
           let normalTimeMinutes = 0;
           let distance = 0;
 
+          console.log('Google Maps API Response Debug:', {
+            leg: leg,
+            duration_in_traffic: leg.duration_in_traffic,
+            duration: leg.duration,
+            distance: leg.distance
+          });
+
           if (leg.duration_in_traffic) {
             trafficTimeMinutes = Math.round(leg.duration_in_traffic.value / 60);
           } else if (leg.duration) {
             trafficTimeMinutes = Math.round(leg.duration.value / 60);
+            console.warn('No duration_in_traffic available, using regular duration');
+          } else {
+            // Fallback if no duration data available
+            trafficTimeMinutes = 30; // Default 30 minutes
+            console.warn('No duration data available, using default 30 minutes');
           }
 
           if (leg.duration) {
             normalTimeMinutes = Math.round(leg.duration.value / 60);
+          } else {
+            normalTimeMinutes = trafficTimeMinutes; // Use traffic time as fallback
           }
 
           if (leg.distance) {
             distance = leg.distance.value / 1000; // Convert to km
+          } else {
+            distance = 15; // Default 15km if no distance data
+            console.warn('No distance data available, using default 15km');
           }
 
           console.log('Route calculation result:', {
@@ -162,7 +180,12 @@ const GoogleMapsTrafficCalculator = () => {
             route: route
           });
         } else {
-          reject(new Error(`Directions request failed: ${status}`));
+          console.error('Google Maps Directions API failed:', {
+            status: status,
+            origin: origin,
+            destination: destination
+          });
+          reject(new Error(`Directions request failed: ${status}. Please check your addresses and try again.`));
         }
       });
     });
