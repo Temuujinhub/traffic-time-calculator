@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+// Traffic Calculator with 50% Mongolia peak hour simulation
 const GoogleMapsTrafficCalculator = () => {
   const [addresses, setAddresses] = useState({
     home: '',
