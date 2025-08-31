@@ -147,7 +147,12 @@ const GoogleMapsTrafficCalculator = () => {
       if (withTraffic) {
         request.drivingOptions = {
           departureTime: new Date(),
-          trafficModel: window.google.maps.TrafficModel.BEST_GUESS
+          trafficModel: window.google.maps.TrafficModel.PESSIMISTIC
+        };
+      } else {
+        request.drivingOptions = {
+          departureTime: new Date(),
+          trafficModel: window.google.maps.TrafficModel.OPTIMISTIC
         };
       }
 
@@ -162,6 +167,44 @@ const GoogleMapsTrafficCalculator = () => {
             totalTime += Math.ceil(durationValue / 60); // Convert to minutes
           });
           resolve(totalTime);
+        } else {
+          reject(new Error('Directions request failed: ' + status));
+        }
+      });
+    });
+  };
+
+  const getRouteDistance = (home, school, work) => {
+    return new Promise((resolve, reject) => {
+      const waypoints = [];
+      let destination = school;
+
+      if (work && work.trim() !== '') {
+        waypoints.push({
+          location: school,
+          stopover: true
+        });
+        destination = work;
+      }
+
+      const request = {
+        origin: home,
+        destination: destination,
+        waypoints: waypoints,
+        travelMode: window.google.maps.TravelMode.DRIVING,
+        avoidHighways: false,
+        avoidTolls: false
+      };
+
+      directionsServiceRef.current.route(request, (response, status) => {
+        if (status === 'OK') {
+          let totalDistance = 0;
+          response.routes[0].legs.forEach(leg => {
+            totalDistance += leg.distance.value; // in meters
+          });
+          const distanceKm = Math.round((totalDistance / 1000) * 100) / 100; // Convert to km with 2 decimal places
+          console.log('Route distance:', distanceKm, 'km');
+          resolve(distanceKm);
         } else {
           reject(new Error('Directions request failed: ' + status));
         }
@@ -186,12 +229,15 @@ const GoogleMapsTrafficCalculator = () => {
     setError('');
 
     try {
-      // Calculate routes with current traffic and without traffic
-      const currentTrafficTime = await getRouteTime(addresses.home, addresses.school, addresses.work, true);
-      const normalTime = await getRouteTime(addresses.home, addresses.school, addresses.work, false);
+      // Calculate routes with current traffic and without traffic, and get distance
+      const [currentTrafficTime, normalTime, routeDistance] = await Promise.all([
+        getRouteTime(addresses.home, addresses.school, addresses.work, true),
+        getRouteTime(addresses.home, addresses.school, addresses.work, false),
+        getRouteDistance(addresses.home, addresses.school, addresses.work)
+      ]);
 
       // Debug log
-      console.log('Traffic time:', currentTrafficTime, 'Normal time:', normalTime);
+      console.log('Traffic time:', currentTrafficTime, 'Normal time:', normalTime, 'Distance:', routeDistance, 'km');
 
       if (currentTrafficTime === 0 || normalTime === 0) {
         setError('Маршрут олдсонгүй. Хаягуудыг шалгаад дахин оролдоно уу.');
@@ -206,9 +252,8 @@ const GoogleMapsTrafficCalculator = () => {
       const yearlyHours = Math.floor(yearlyLoss / 60);
       const yearlyMinutes = yearlyLoss % 60;
       
-      // Calculate fuel consumption and cost estimates
-      const estimatedDistanceKm = 15; // Average distance estimate for UB
-      const dailyDistanceKm = estimatedDistanceKm * 2; // Round trip
+      // Calculate fuel consumption and cost estimates using actual distance
+      const dailyDistanceKm = routeDistance * 2; // Round trip
       const yearlyDistanceKm = dailyDistanceKm * 250; // Working days
       const fuelConsumptionL = (yearlyDistanceKm * 8) / 100; // 8L/100km average consumption
       const fuelCostPerLiter = 2500; // MNT
@@ -229,7 +274,9 @@ const GoogleMapsTrafficCalculator = () => {
         yearlyMinutes,
         fuelConsumption: Math.round(fuelConsumptionL),
         annualFuelCost: Math.round(annualFuelCost),
-        estimatedDistanceKm,
+        routeDistance: routeDistance,
+        dailyDistanceKm: dailyDistanceKm,
+        yearlyDistanceKm: Math.round(yearlyDistanceKm),
         routes,
         calculatedAt: new Date().toLocaleString('mn-MN')
       });
@@ -380,17 +427,40 @@ const GoogleMapsTrafficCalculator = () => {
                 </div>
                 
                 <div className="bg-cyan-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-cyan-800">🛣️ Жилийн зам</h4>
-                  <p className="text-2xl font-bold text-cyan-600">{(results.estimatedDistanceKm * 2 * 250).toLocaleString()} км</p>
-                  <p className="text-sm text-cyan-700">Ойролцоогоор {results.estimatedDistanceKm}км-ийн зам</p>
+                  <h4 className="font-semibold text-cyan-800">🛣️ Нийт зай</h4>
+                  <p className="text-2xl font-bold text-cyan-600">{results.routeDistance} км</p>
+                  <p className="text-sm text-cyan-700">Нэг талын зай (Google Maps-аас авсан)</p>
+                </div>
+                
+                <div className="bg-teal-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-teal-800">🔄 Хоёр талын зай</h4>
+                  <p className="text-2xl font-bold text-teal-600">{results.dailyDistanceKm} км</p>
+                  <p className="text-sm text-teal-700">Өдрийн нийт зам (буцах замтай)</p>
+                </div>
+                
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-slate-800">📊 Жилийн нийт зам</h4>
+                  <p className="text-2xl font-bold text-slate-600">{results.yearlyDistanceKm.toLocaleString()} км</p>
+                  <p className="text-sm text-slate-700">250 ажлын өдрийн нийт зам</p>
                 </div>
               </div>
             </div>
             
             <div className="mt-6 bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">📍 Маршрут</h4>
-              <p className="text-blue-700">{results.routes}</p>
-              <p className="text-sm text-blue-600 mt-1">Google Maps-аас жинхэнэ мэдээлэл авсан</p>
+              <h4 className="font-semibold text-blue-800 mb-2">📍 Маршрутын дэлгэрэнгүй мэдээлэл</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-blue-700">
+                <div>
+                  <p><strong>Маршрут:</strong> {results.routes}</p>
+                  <p><strong>Нэг талын зай:</strong> {results.routeDistance} км</p>
+                  <p><strong>Хоёр талын зай:</strong> {results.dailyDistanceKm} км</p>
+                </div>
+                <div>
+                  <p><strong>Түгжрэлгүй цаг:</strong> {results.normalTime} минут</p>
+                  <p><strong>Түгжрэлтэй цаг:</strong> {results.currentTrafficTime} минут</p>
+                  <p><strong>Цагийн ялгаа:</strong> {results.currentTrafficTime - results.normalTime} минут</p>
+                </div>
+              </div>
+              <p className="text-sm text-blue-600 mt-3">Google Maps API-аас жинхэнэ мэдээлэл авсан</p>
               <p className="text-xs text-blue-500 mt-1">Тооцоолсон цаг: {results.calculatedAt}</p>
             </div>
           </CardContent>
