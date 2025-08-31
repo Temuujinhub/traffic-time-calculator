@@ -239,44 +239,81 @@ const GoogleMapsTrafficCalculator = () => {
       // Debug log
       console.log('Traffic time:', currentTrafficTime, 'Normal time:', normalTime, 'Distance:', routeDistance, 'km');
 
-      if (currentTrafficTime === 0 || normalTime === 0) {
+      if (currentTrafficTime === 0 || normalTime === 0 || !routeDistance) {
         setError('Маршрут олдсонгүй. Хаягуудыг шалгаад дахин оролдоно уу.');
         return;
       }
 
-      const dailyLoss = Math.max(0, (currentTrafficTime - normalTime) * 2); // Round trip
-      const weeklyLoss = dailyLoss * 5; // 5 working days  
-      const monthlyLoss = dailyLoss * 22; // 22 working days per month
-      const yearlyLoss = dailyLoss * 250; // Approximately 250 working days per year
+      // Calculate time losses using ONLY traffic time (peak hours)
+      // Morning: Home → School → Work (peak traffic)
+      // Evening: Work → School → Home (peak traffic)
+      const morningTrafficTime = currentTrafficTime; // Өглөөний түгжрэлтэй цаг
+      const eveningTrafficTime = currentTrafficTime; // Орой хариу буцах түгжрэлтэй цаг
+      
+      // Daily total time spent in traffic (2 trips in peak hours)
+      const dailyTrafficTime = morningTrafficTime + eveningTrafficTime;
+      
+      // Calculate what time would be without traffic
+      const dailyNormalTime = normalTime * 2; // 2 trips without traffic
+      
+      // Daily time lost due to traffic
+      const dailyLoss = Math.max(0, dailyTrafficTime - dailyNormalTime);
+      
+      // Calculate weekly loss (5 working days)
+      const weeklyLoss = dailyLoss * 5;
+      
+      // Calculate monthly loss (22 working days)
+      const monthlyLoss = dailyLoss * 22;
+      
+      // Calculate yearly loss (250 working days approximately)
+      const yearlyLoss = dailyLoss * 250;
       
       const yearlyHours = Math.floor(yearlyLoss / 60);
       const yearlyMinutes = yearlyLoss % 60;
       
-      // Calculate fuel consumption and cost estimates using actual distance
-      const dailyDistanceKm = routeDistance * 2; // Round trip
-      const yearlyDistanceKm = dailyDistanceKm * 250; // Working days
-      const fuelConsumptionL = (yearlyDistanceKm * 8) / 100; // 8L/100km average consumption
+      // Calculate fuel consumption and cost using TRAFFIC TIME distance
+      const dailyDistanceKm = routeDistance * 2; // Round trip distance
+      const monthlyDistanceKm = dailyDistanceKm * 22; // 22 working days
+      const yearlyDistanceKm = dailyDistanceKm * 250; // 250 working days
+      
+      // Fuel consumption (8L/100km average for UB conditions)
+      const fuelConsumptionLitersPerYear = (yearlyDistanceKm * 8) / 100;
       const fuelCostPerLiter = 2500; // MNT
-      const annualFuelCost = fuelConsumptionL * fuelCostPerLiter;
+      const annualFuelCost = fuelConsumptionLitersPerYear * fuelCostPerLiter;
+      
+      // Calculate EXTRA fuel cost due to traffic (time spent idling/slow driving)
+      const trafficDelayRatio = dailyLoss / dailyNormalTime; // How much extra time due to traffic
+      const extraFuelDueToTraffic = annualFuelCost * trafficDelayRatio; // Extra fuel cost due to traffic delays
       
       const routes = addresses.work && addresses.work.trim() !== '' ? 
         `${addresses.home} → ${addresses.school} → ${addresses.work}` : 
         `${addresses.home} ↔ ${addresses.school}`;
 
       setResults({
+        // Time data
         currentTrafficTime,
         normalTime,
+        dailyTrafficTime,
+        dailyNormalTime,
         dailyLoss,
         weeklyLoss,
         monthlyLoss,
         yearlyLoss,
         yearlyHours,
         yearlyMinutes,
-        fuelConsumption: Math.round(fuelConsumptionL),
-        annualFuelCost: Math.round(annualFuelCost),
-        routeDistance: routeDistance,
-        dailyDistanceKm: dailyDistanceKm,
+        
+        // Distance data
+        routeDistance: Math.round(routeDistance * 100) / 100, // Round to 2 decimals
+        dailyDistanceKm: Math.round(dailyDistanceKm * 100) / 100,
+        monthlyDistanceKm: Math.round(monthlyDistanceKm),
         yearlyDistanceKm: Math.round(yearlyDistanceKm),
+        
+        // Fuel and cost data
+        fuelConsumption: Math.round(fuelConsumptionLitersPerYear),
+        annualFuelCost: Math.round(annualFuelCost),
+        extraFuelDueToTraffic: Math.round(extraFuelDueToTraffic),
+        
+        // Route info
         routes,
         calculatedAt: new Date().toLocaleString('mn-MN')
       });
@@ -415,15 +452,21 @@ const GoogleMapsTrafficCalculator = () => {
               
               <div className="space-y-4">
                 <div className="bg-indigo-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-indigo-800">⛽ Жилийн шатахуун зарцуулалт</h4>
+                  <h4 className="font-semibold text-indigo-800">⛽ Жилийн шатахуун</h4>
                   <p className="text-2xl font-bold text-indigo-600">{results.fuelConsumption} литр</p>
-                  <p className="text-sm text-indigo-700">8л/100км-ээр тооцсон</p>
+                  <p className="text-sm text-indigo-700">{results.yearlyDistanceKm.toLocaleString()} км замд (8л/100км)</p>
                 </div>
                 
                 <div className="bg-emerald-50 p-4 rounded-lg">
                   <h4 className="font-semibold text-emerald-800">💰 Жилийн шатахуун зардал</h4>
                   <p className="text-2xl font-bold text-emerald-600">{results.annualFuelCost.toLocaleString()} ₮</p>
                   <p className="text-sm text-emerald-700">2500₮/литрээр тооцсон</p>
+                </div>
+                
+                <div className="bg-rose-50 p-4 rounded-lg border-2 border-rose-200">
+                  <h4 className="font-semibold text-rose-800">🔥 Түгжрэлд зарцуулсан нэмэлт мөнгө</h4>
+                  <p className="text-3xl font-bold text-rose-600">{results.extraFuelDueToTraffic.toLocaleString()} ₮</p>
+                  <p className="text-sm text-rose-700">Зөвхөн түгжрэлийн улмаас алдсан мөнгө!</p>
                 </div>
                 
                 <div className="bg-cyan-50 p-4 rounded-lg">
