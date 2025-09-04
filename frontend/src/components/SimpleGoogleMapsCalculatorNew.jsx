@@ -195,14 +195,24 @@ const GoogleMapsTrafficCalculator = () => {
 
       const totalDailyTrafficTime = totalMorningTrafficTime + totalEveningTrafficTime;
       const totalDailyNormalTime = totalMorningNormalTime + totalEveningNormalTime;
+      
+      // Түгжрэлийн алдагдал = түгжрэлтэй цаг - түгжрэлгүй цаг
       const dailyTrafficLoss = totalDailyTrafficTime - totalDailyNormalTime;
 
-      const weeklyLoss = dailyTrafficLoss * 5;
-      const monthlyLoss = dailyTrafficLoss * 22;
-      const yearlyLoss = dailyTrafficLoss * 250;
+      // Үндсэн тооцоог түгжрэлтэй цаг дээр үндэслэе
+      const weeklyTrafficTime = totalDailyTrafficTime * 5; // 5 ажлын өдөр
+      const monthlyTrafficTime = totalDailyTrafficTime * 22; // 22 ажлын өдөр  
+      const yearlyTrafficTime = totalDailyTrafficTime * 250; // 250 ажлын өдөр
 
-      const yearlyHours = Math.floor(yearlyLoss / 60);
-      const yearlyMinutes = yearlyLoss % 60;
+      // Цагаар шилжүүлэх
+      const weeklyHours = Math.floor(weeklyTrafficTime / 60);
+      const weeklyMinutes = weeklyTrafficTime % 60;
+      
+      const monthlyHours = Math.floor(monthlyTrafficTime / 60);
+      const monthlyMinutesRemainder = monthlyTrafficTime % 60;
+
+      const yearlyHours = Math.floor(yearlyTrafficTime / 60);
+      const yearlyMinutes = yearlyTrafficTime % 60;
 
       const dailyDistanceKm = totalDistance;
       const yearlyDistanceKm = dailyDistanceKm * 250;
@@ -218,9 +228,15 @@ const GoogleMapsTrafficCalculator = () => {
         normalTime: totalDailyNormalTime,
         currentTrafficTime: totalDailyTrafficTime,
         dailyLoss: dailyTrafficLoss,
-        weeklyLoss: weeklyLoss,
-        monthlyLoss: monthlyLoss,
-        yearlyLoss: yearlyLoss,
+        // Түгжрэлтэй цагийн үндсэн дээрх тооцоо
+        weeklyTrafficTime: weeklyTrafficTime,
+        monthlyTrafficTime: monthlyTrafficTime, 
+        yearlyTrafficTime: yearlyTrafficTime,
+        // Цаг/минутаар
+        weeklyHours: weeklyHours,
+        weeklyMinutes: weeklyMinutes,
+        monthlyHours: monthlyHours,
+        monthlyMinutes: monthlyMinutesRemainder,
         yearlyHours: yearlyHours,
         yearlyMinutes: yearlyMinutes,
         routes: routes,
@@ -432,6 +448,29 @@ const GoogleMapsTrafficCalculator = () => {
               <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#ea580c' }}>
                 {results.dailyLoss} минут
               </p>
+              <p style={{ fontSize: '12px', color: '#ea580c' }}>
+                Түгжрэлээс болсон нэмэлт цаг
+              </p>
+            </div>
+            
+            <div style={{
+              backgroundColor: '#f3f4f6',
+              padding: '16px',
+              borderRadius: '8px',
+              border: '2px solid #d1d5db'
+            }}>
+              <h4 style={{ fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                📈 Түгжрэлийн алдагдал (жилээр)
+              </h4>
+              <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#374151' }}>
+                {Math.round(results.dailyLoss * 250)} минут
+              </p>
+              <p style={{ fontSize: '14px', color: '#6b7280' }}>
+                {Math.floor(results.dailyLoss * 250 / 60)} цаг {(results.dailyLoss * 250) % 60} минут
+              </p>
+              <p style={{ fontSize: '12px', color: '#9ca3af' }}>
+                Түгжрэлээс болж алдагдах цаг (250 ажлын өдөр)
+              </p>
             </div>
             
             <div style={{
@@ -440,10 +479,13 @@ const GoogleMapsTrafficCalculator = () => {
               borderRadius: '8px'
             }}>
               <h4 style={{ fontWeight: '600', color: '#a16207', marginBottom: '8px' }}>
-                7 хоногийн алдагдал
+                7 хоногийн нийт цаг (5 ажлын өдөр)
               </h4>
               <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#ca8a04' }}>
-                {results.weeklyLoss} минут
+                {results.weeklyHours} цаг {results.weeklyMinutes} минут
+              </p>
+              <p style={{ fontSize: '12px', color: '#ca8a04' }}>
+                Түгжрэлтэй замд зарцуулах цаг
               </p>
             </div>
             
@@ -453,10 +495,13 @@ const GoogleMapsTrafficCalculator = () => {
               borderRadius: '8px'
             }}>
               <h4 style={{ fontWeight: '600', color: '#7c2d12', marginBottom: '8px' }}>
-                Сарын алдагдал
+                Сарын нийт цаг (22 ажлын өдөр)
               </h4>
               <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#a855f7' }}>
-                {results.monthlyLoss} минут
+                {results.monthlyHours} цаг {results.monthlyMinutes} минут
+              </p>
+              <p style={{ fontSize: '12px', color: '#a855f7' }}>
+                Түгжрэлтэй замд зарцуулах цаг
               </p>
             </div>
             
@@ -467,10 +512,13 @@ const GoogleMapsTrafficCalculator = () => {
               border: '2px solid #fecaca'
             }}>
               <h4 style={{ fontWeight: '600', color: '#dc2626', marginBottom: '8px' }}>
-                🚨 Жилийн алдагдал
+                🚨 Жилийн нийт цаг (250 ажлын өдөр)
               </h4>
               <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc2626' }}>
                 {results.yearlyHours} цаг {results.yearlyMinutes} минут
+              </p>
+              <p style={{ fontSize: '12px', color: '#dc2626' }}>
+                Энэ нь {Math.floor(results.yearlyHours/24)} өдрийн цагтай тэнцэнэ!
               </p>
             </div>
             
