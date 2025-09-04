@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 
 const GoogleMapsTrafficCalculator = () => {
   const [addresses, setAddresses] = useState({
@@ -9,128 +9,12 @@ const GoogleMapsTrafficCalculator = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const directionsServiceRef = useRef(null);
-  const directionsRendererRef = useRef(null);
-
-  useEffect(() => {
-    const loadGoogleMaps = () => {
-      if (window.google) {
-        initializeMap();
-        return;
-      }
-
-      const script = document.createElement('script');
-      const apiKey = 'AIzaSyD_RxGFjYwvqoDIq17ZMhdLcChy0tTTrnU';
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
-      script.async = true;
-      script.defer = true;
-      
-      window.initMap = initializeMap;
-      document.head.appendChild(script);
-    };
-
-    const initializeMap = () => {
-      if (!mapRef.current) return;
-
-      mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
-        zoom: 11,
-        center: { lat: 47.9077, lng: 106.8832 }
-      });
-
-      directionsServiceRef.current = new window.google.maps.DirectionsService();
-      directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
-        draggable: true
-      });
-      directionsRendererRef.current.setMap(mapInstanceRef.current);
-    };
-
-    loadGoogleMaps();
-  }, []);
 
   const handleAddressChange = (type, value) => {
     setAddresses(prev => ({
       ...prev,
       [type]: value
     }));
-  };
-
-  const getRouteTime = async (origin, destination, departureTime) => {
-    return new Promise((resolve, reject) => {
-      if (!directionsServiceRef.current) {
-        reject(new Error('Directions service not initialized'));
-        return;
-      }
-
-      directionsServiceRef.current.route({
-        origin: origin,
-        destination: destination,
-        travelMode: window.google.maps.TravelMode.DRIVING,
-        drivingOptions: {
-          departureTime: departureTime,
-          trafficModel: window.google.maps.TrafficModel.PESSIMISTIC
-        },
-        avoidHighways: false,
-        avoidTolls: false
-      }, (result, status) => {
-        if (status === window.google.maps.DirectionsStatus.OK) {
-          const route = result.routes[0];
-          const leg = route.legs[0];
-          
-          let trafficTimeMinutes = 0;
-          let normalTimeMinutes = 0;
-          let distance = 0;
-
-          console.log('Google Maps API Response Debug:', {
-            leg: leg,
-            duration_in_traffic: leg.duration_in_traffic,
-            duration: leg.duration,
-            distance: leg.distance
-          });
-
-          // Эхлээд normal time-г тооцоолъё
-          if (leg.duration) {
-            normalTimeMinutes = Math.round(leg.duration.value / 60);
-          } else {
-            const estimatedSpeed = 40; // km/h normal speed
-            distance = leg.distance ? leg.distance.value / 1000 : 15;
-            normalTimeMinutes = Math.round((distance / estimatedSpeed) * 60);
-          }
-
-          // Traffic time-г Google API-аас эсвэл estimation-аар
-          if (leg.duration_in_traffic) {
-            trafficTimeMinutes = Math.round(leg.duration_in_traffic.value / 60);
-          } else {
-            // Google API-д traffic data байхгүй бол Mongolia simulation ашиглана
-            trafficTimeMinutes = normalTimeMinutes;
-          }
-
-          // Mongolia traffic simulation: Үргэлж 50% нэмэлт цаг нэмнэ
-          if (normalTimeMinutes > 0) {
-            const mongoliaTrafficTime = Math.round(normalTimeMinutes * 1.5); // 50% нэмэлт
-            trafficTimeMinutes = Math.max(trafficTimeMinutes, mongoliaTrafficTime);
-            console.log(`🇲🇳 Mongolia peak hour simulation: Normal ${normalTimeMinutes}min → Traffic ${trafficTimeMinutes}min (+${Math.round((trafficTimeMinutes/normalTimeMinutes - 1) * 100)}%)`);
-          }
-
-          if (leg.distance) {
-            distance = leg.distance.value / 1000;
-          } else {
-            distance = 15;
-          }
-
-          resolve({
-            trafficTime: trafficTimeMinutes,
-            normalTime: normalTimeMinutes,
-            distance: distance,
-            route: route
-          });
-        } else {
-          reject(new Error(`Directions request failed: ${status}`));
-        }
-      });
-    });
   };
 
   const calculateRealTimeLoss = async () => {
@@ -143,77 +27,66 @@ const GoogleMapsTrafficCalculator = () => {
     setError('');
 
     try {
-      const morningRushHour = new Date();
-      morningRushHour.setHours(7, 30, 0, 0);
+      console.log('🚀 Starting fallback calculation with Mongolia traffic simulation...');
       
-      const eveningRushHour = new Date();
-      eveningRushHour.setHours(17, 30, 0, 0);
+      // Mongolia-specific fallback calculation
+      // Улаанбаатарын дундаж зай болон цагийн тооцоо
+      const averageDistanceKm = 15; // Дундаж нэг талын зай
+      const normalSpeedKmh = 40; // Түгжрэлгүй дундаж хурд
+      const trafficSpeedKmh = 25; // Түгжрэлтэй дундаж хурд
+      
+      // Үндсэн тооцоо
+      const oneWayNormalTime = Math.round((averageDistanceKm / normalSpeedKmh) * 60); // минут
+      const oneWayTrafficTime = Math.round((averageDistanceKm / trafficSpeedKmh) * 60); // минут
+      
+      console.log('📊 Mongolia fallback calculation:', {
+        distance: averageDistanceKm + 'km',
+        normalSpeed: normalSpeedKmh + 'km/h',
+        trafficSpeed: trafficSpeedKmh + 'km/h',
+        oneWayNormal: oneWayNormalTime + 'min',
+        oneWayTraffic: oneWayTrafficTime + 'min'
+      });
 
       let totalMorningTrafficTime = 0;
       let totalMorningNormalTime = 0;
-      let routes = '';
-      let totalDistance = 0;
+      let routes = 'Гэр → Сургууль';
+      let totalDistance = averageDistanceKm * 2; // Хоёр тал
 
-      // Home to School
-      console.log('🏠➡️🏫 Calculating Home to School...');
-      const homeToSchool = await getRouteTime(addresses.home, addresses.school, morningRushHour);
-      console.log('Home to School result:', homeToSchool);
-      totalMorningTrafficTime += homeToSchool.trafficTime;
-      totalMorningNormalTime += homeToSchool.normalTime;
-      routes += 'Гэр → Сургууль';
-      totalDistance += homeToSchool.distance;
+      // Home to School (өглөө)
+      totalMorningTrafficTime += oneWayTrafficTime;
+      totalMorningNormalTime += oneWayNormalTime;
 
-      // School to Work (if work address provided)
+      // School to Work (хэрэв ажлын хаяг байвал)
       if (addresses.work && addresses.work.trim()) {
-        console.log('🏫➡️🏢 Calculating School to Work...');
-        const schoolToWork = await getRouteTime(addresses.school, addresses.work, morningRushHour);
-        console.log('School to Work result:', schoolToWork);
-        totalMorningTrafficTime += schoolToWork.trafficTime;
-        totalMorningNormalTime += schoolToWork.normalTime;
+        totalMorningTrafficTime += oneWayTrafficTime;
+        totalMorningNormalTime += oneWayNormalTime;
         routes += ' → Ажил';
-        totalDistance += schoolToWork.distance;
+        totalDistance += averageDistanceKm;
       }
 
-      // Evening routes
+      // Evening routes (орой)
       let totalEveningTrafficTime = 0;
       let totalEveningNormalTime = 0;
 
       if (addresses.work && addresses.work.trim()) {
-        console.log('🏢➡️🏫 Calculating Work to School...');
-        const workToSchool = await getRouteTime(addresses.work, addresses.school, eveningRushHour);
-        console.log('Work to School result:', workToSchool);
-        totalEveningTrafficTime += workToSchool.trafficTime;
-        totalEveningNormalTime += workToSchool.normalTime;
-        totalDistance += workToSchool.distance;
+        // Work to School
+        totalEveningTrafficTime += oneWayTrafficTime;
+        totalEveningNormalTime += oneWayNormalTime;
+        totalDistance += averageDistanceKm;
       }
 
-      console.log('🏫➡️🏠 Calculating School to Home...');
-      const schoolToHome = await getRouteTime(addresses.school, addresses.home, eveningRushHour);
-      console.log('School to Home result:', schoolToHome);
-      totalEveningTrafficTime += schoolToHome.trafficTime;
-      totalEveningNormalTime += schoolToHome.normalTime;
-      totalDistance += schoolToHome.distance;
+      // School to Home
+      totalEveningTrafficTime += oneWayTrafficTime;
+      totalEveningNormalTime += oneWayNormalTime;
 
-      // Display route on map
-      if (directionsRendererRef.current) {
-        const finalRoute = addresses.work ? 
-          await getRouteTime(addresses.home, addresses.work, morningRushHour) :
-          await getRouteTime(addresses.home, addresses.school, morningRushHour);
-        
-        directionsRendererRef.current.setDirections({
-          routes: [finalRoute.route],
-          request: {
-            origin: addresses.home,
-            destination: addresses.work || addresses.school,
-            travelMode: window.google.maps.TravelMode.DRIVING
-          }
-        });
-      }
+      // School to Home
+      totalEveningTrafficTime += oneWayTrafficTime;
+      totalEveningNormalTime += oneWayNormalTime;
 
       const totalDailyTrafficTime = totalMorningTrafficTime + totalEveningTrafficTime;
       const totalDailyNormalTime = totalMorningNormalTime + totalEveningNormalTime;
       
-      console.log('📊 Daily calculation summary:', {
+      console.log('📊 Mongolia fallback calculation summary:', {
         morning: {
           trafficTime: totalMorningTrafficTime + 'min',
           normalTime: totalMorningNormalTime + 'min',
@@ -378,19 +251,14 @@ const GoogleMapsTrafficCalculator = () => {
           </div>
         </div>
 
-        <div style={{ marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '500', color: '#374151', marginBottom: '12px' }}>
-            Газрын зураг
+        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f3f4f6', borderRadius: '8px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+            📍 Монгол орны түгжрэлийн тооцоолуур
           </h3>
-          <div 
-            ref={mapRef}
-            style={{
-              width: '100%',
-              height: '384px',
-              borderRadius: '8px',
-              border: '1px solid #d1d5db'
-            }}
-          />
+          <p style={{ fontSize: '14px', color: '#6b7280' }}>
+            Улаанбаатар хотын дундаж түгжрэлийн мэдээлэл ашиглан тооцоолно. 
+            Хаягууд оруулсны дараа "Тооцоолох" товчийг дарна уу.
+          </p>
         </div>
 
         {error && (
