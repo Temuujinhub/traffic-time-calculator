@@ -29,7 +29,14 @@ jobs:
     - name: Install dependencies
       run: |
         cd frontend
-        npm install
+        npm ci --force
+        
+    - name: Clear cache
+      run: |
+        cd frontend
+        npm cache clean --force
+        rm -rf node_modules/.cache
+        rm -rf dist
 
     - name: Build
       run: |
