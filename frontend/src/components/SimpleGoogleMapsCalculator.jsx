@@ -147,21 +147,25 @@ const GoogleMapsTrafficCalculator = () => {
             trafficTimeMinutes = Math.round(leg.duration.value / 60);
             console.warn('No duration_in_traffic available, using regular duration');
           } else {
-            // Fallback if no duration data available
-            trafficTimeMinutes = 30; // Default 30 minutes
-            console.warn('No duration data available, using default 30 minutes');
+            // Fallback if no duration data available - estimate based on distance
+            const estimatedSpeed = 25; // km/h in traffic
+            distance = leg.distance ? leg.distance.value / 1000 : 15;
+            trafficTimeMinutes = Math.round((distance / estimatedSpeed) * 60);
+            console.warn(`No duration data available, estimated ${trafficTimeMinutes} minutes based on ${distance}km`);
           }
 
           if (leg.duration) {
             normalTimeMinutes = Math.round(leg.duration.value / 60);
           } else {
-            normalTimeMinutes = trafficTimeMinutes; // Use traffic time as fallback
+            // Estimate normal time as 80% of traffic time
+            normalTimeMinutes = Math.round(trafficTimeMinutes * 0.8);
           }
 
-          // If traffic time equals normal time, simulate peak hour traffic (50% increase for Mongolia)
-          if (trafficTimeMinutes === normalTimeMinutes && normalTimeMinutes > 0) {
-            trafficTimeMinutes = Math.round(normalTimeMinutes * 1.5);
-            console.log(`Simulating Mongolia peak hour traffic: ${normalTimeMinutes}min → ${trafficTimeMinutes}min (+50%)`);
+          // Mongolia traffic simulation: Always add 50% to normal time for peak hours
+          if (normalTimeMinutes > 0) {
+            const simulatedTrafficTime = Math.round(normalTimeMinutes * 1.5);
+            console.log(`🇲🇳 Mongolia peak hour simulation: Normal ${normalTimeMinutes}min → Traffic ${simulatedTrafficTime}min (+50%)`);
+            trafficTimeMinutes = Math.max(trafficTimeMinutes, simulatedTrafficTime);
           }
 
           if (leg.distance) {
@@ -171,13 +175,14 @@ const GoogleMapsTrafficCalculator = () => {
             console.warn('No distance data available, using default 15km');
           }
 
-          console.log('Route calculation result:', {
-            origin,
-            destination,
-            trafficTime: trafficTimeMinutes,
-            normalTime: normalTimeMinutes,
-            distance: distance,
-            departureTime: departureTime
+          console.log('✅ Route calculation result:', {
+            origin: origin,
+            destination: destination,
+            normalTime: normalTimeMinutes + 'min',
+            trafficTime: trafficTimeMinutes + 'min',
+            difference: (trafficTimeMinutes - normalTimeMinutes) + 'min',
+            distance: distance.toFixed(1) + 'km',
+            departureTime: departureTime.toLocaleTimeString()
           });
 
           resolve({
@@ -330,21 +335,31 @@ const GoogleMapsTrafficCalculator = () => {
       const totalDailyTrafficTime = totalMorningTrafficTime + totalEveningTrafficTime;
       const totalDailyNormalTime = totalMorningNormalTime + totalEveningNormalTime;
 
-      // Daily loss is the TOTAL traffic time, not the difference
-      const dailyLoss = totalDailyTrafficTime;
+      // Daily traffic loss is the EXTRA time spent due to traffic (difference)
+      const dailyTrafficLoss = totalDailyTrafficTime - totalDailyNormalTime;
 
-      console.log('Daily calculation summary:', {
-        totalDailyTrafficTime,
-        totalDailyNormalTime,
-        dailyLoss,
-        morningTraffic: totalMorningTrafficTime,
-        eveningTraffic: totalEveningTrafficTime
+      console.log('📊 Daily calculation summary:', {
+        morning: {
+          trafficTime: totalMorningTrafficTime + 'min',
+          normalTime: totalMorningNormalTime + 'min',
+          loss: (totalMorningTrafficTime - totalMorningNormalTime) + 'min'
+        },
+        evening: {
+          trafficTime: totalEveningTrafficTime + 'min', 
+          normalTime: totalEveningNormalTime + 'min',
+          loss: (totalEveningTrafficTime - totalEveningNormalTime) + 'min'
+        },
+        daily: {
+          totalTrafficTime: totalDailyTrafficTime + 'min',
+          totalNormalTime: totalDailyNormalTime + 'min',
+          trafficLoss: dailyTrafficLoss + 'min'
+        }
       });
 
-      // Calculate various timeframes
-      const weeklyLoss = dailyLoss * 5; // 5 working days
-      const monthlyLoss = dailyLoss * 22; // 22 working days
-      const yearlyLoss = dailyLoss * 250; // 250 working days
+      // Calculate various timeframes based on traffic loss
+      const weeklyLoss = dailyTrafficLoss * 5; // 5 working days
+      const monthlyLoss = dailyTrafficLoss * 22; // 22 working days
+      const yearlyLoss = dailyTrafficLoss * 250; // 250 working days
 
       // Convert yearly loss to hours and minutes
       const yearlyHours = Math.floor(yearlyLoss / 60);
@@ -371,7 +386,7 @@ const GoogleMapsTrafficCalculator = () => {
       const calculationResults = {
         normalTime: totalDailyNormalTime,
         currentTrafficTime: totalDailyTrafficTime,
-        dailyLoss: dailyLoss,
+        dailyLoss: dailyTrafficLoss, // This is the traffic loss (extra time)
         weeklyLoss: weeklyLoss,
         monthlyLoss: monthlyLoss,
         yearlyLoss: yearlyLoss,
@@ -390,7 +405,16 @@ const GoogleMapsTrafficCalculator = () => {
         eveningResults: eveningResults
       };
 
-      console.log('Final calculation results:', calculationResults);
+      console.log('🎯 Final calculation results:', {
+        normalTime: totalDailyNormalTime + ' минут (өдөрт)',
+        currentTrafficTime: totalDailyTrafficTime + ' минут (өдөрт)', 
+        dailyTrafficLoss: dailyTrafficLoss + ' минут (нэмэлт цаг)',
+        weeklyLoss: weeklyLoss + ' минут',
+        monthlyLoss: monthlyLoss + ' минут',
+        yearlyLoss: yearlyLoss + ' минут (' + yearlyHours + 'ц ' + yearlyMinutes + 'м)',
+        totalDistance: totalDistance.toFixed(1) + ' км',
+        routes: routes
+      });
       setResults(calculationResults);
 
     } catch (error) {
@@ -550,30 +574,33 @@ const GoogleMapsTrafficCalculator = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ backgroundColor: '#f0fdf4', padding: '16px', borderRadius: '8px' }}>
                 <h4 style={{ fontWeight: '600', color: '#166534', marginBottom: '8px' }}>
-                  Түгжрэлгүй цаг (нэг талдаа)
+                  Түгжрэлгүй цаг (өдөрт)
                 </h4>
                 <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#16a34a' }}>
                   {results.normalTime} минут
                 </p>
+                <p style={{ fontSize: '12px', color: '#166534' }}>Өглөө + орой нийт</p>
               </div>
               
               <div style={{ backgroundColor: '#fef2f2', padding: '16px', borderRadius: '8px' }}>
                 <h4 style={{ fontWeight: '600', color: '#dc2626', marginBottom: '8px' }}>
-                  Түгжрэлтэй цаг (нэг талдаа)
+                  Түгжрэлтэй цаг (өдөрт)
                 </h4>
                 <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#dc2626' }}>
                   {results.currentTrafficTime} минут
                 </p>
+                <p style={{ fontSize: '12px', color: '#dc2626' }}>Өглөө + орой нийт</p>
               </div>
               
               <div style={{ backgroundColor: '#fff7ed', padding: '16px', borderRadius: '8px' }}>
                 <h4 style={{ fontWeight: '600', color: '#ea580c', marginBottom: '8px' }}>
-                  Өдрийн алдагдал (2 удаа)
+                  Өдрийн түгжрэлийн алдагдал
                 </h4>
                 <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#ea580c' }}>
                   {results.dailyLoss} минут
                 </p>
-                <p style={{ fontSize: '12px', color: '#ea580c' }}>Өглөө + орой</p>
+                <p style={{ fontSize: '12px', color: '#ea580c' }}>Түгжрэлээс болсон нэмэлт цаг</p>
+              </div>
               </div>
             </div>
             
@@ -668,12 +695,12 @@ const GoogleMapsTrafficCalculator = () => {
               <div style={{ color: '#1e40af' }}>
                 <p><strong>Маршрут:</strong> {results.routes}</p>
                 <p><strong>Нэг талын зай:</strong> {results.routeDistance} км</p>
-                <p><strong>Хоёр талын зай:</strong> {results.dailyDistanceKm} км</p>
+                <p><strong>Өдрийн нийт зай:</strong> {results.dailyDistanceKm} км</p>
               </div>
               <div style={{ color: '#1e40af' }}>
-                <p><strong>Түгжрэлгүй цаг:</strong> {results.normalTime} минут</p>
-                <p><strong>Түгжрэлтэй цаг:</strong> {results.currentTrafficTime} минут</p>
-                <p><strong>Цагийн ялгаа:</strong> {results.currentTrafficTime - results.normalTime} минут</p>
+                <p><strong>Өдрийн түгжрэлгүй цаг:</strong> {results.normalTime} минут</p>
+                <p><strong>Өдрийн түгжрэлтэй цаг:</strong> {results.currentTrafficTime} минут</p>
+                <p><strong>Түгжрэлийн алдагдал:</strong> {results.dailyLoss} минут</p>
               </div>
             </div>
             <p style={{ fontSize: '12px', color: '#3b82f6', marginTop: '12px' }}>
