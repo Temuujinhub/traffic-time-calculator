@@ -83,26 +83,35 @@ const GoogleMapsTrafficCalculator = () => {
           let normalTimeMinutes = 0;
           let distance = 0;
 
-          if (leg.duration_in_traffic) {
-            trafficTimeMinutes = Math.round(leg.duration_in_traffic.value / 60);
-          } else if (leg.duration) {
-            trafficTimeMinutes = Math.round(leg.duration.value / 60);
-          } else {
-            const estimatedSpeed = 25;
-            distance = leg.distance ? leg.distance.value / 1000 : 15;
-            trafficTimeMinutes = Math.round((distance / estimatedSpeed) * 60);
-          }
+          console.log('Google Maps API Response Debug:', {
+            leg: leg,
+            duration_in_traffic: leg.duration_in_traffic,
+            duration: leg.duration,
+            distance: leg.distance
+          });
 
+          // Эхлээд normal time-г тооцоолъё
           if (leg.duration) {
             normalTimeMinutes = Math.round(leg.duration.value / 60);
           } else {
-            normalTimeMinutes = Math.round(trafficTimeMinutes * 0.8);
+            const estimatedSpeed = 40; // km/h normal speed
+            distance = leg.distance ? leg.distance.value / 1000 : 15;
+            normalTimeMinutes = Math.round((distance / estimatedSpeed) * 60);
           }
 
-          // Mongolia traffic simulation: 50% increase for peak hours
+          // Traffic time-г Google API-аас эсвэл estimation-аар
+          if (leg.duration_in_traffic) {
+            trafficTimeMinutes = Math.round(leg.duration_in_traffic.value / 60);
+          } else {
+            // Google API-д traffic data байхгүй бол Mongolia simulation ашиглана
+            trafficTimeMinutes = normalTimeMinutes;
+          }
+
+          // Mongolia traffic simulation: Үргэлж 50% нэмэлт цаг нэмнэ
           if (normalTimeMinutes > 0) {
-            const simulatedTrafficTime = Math.round(normalTimeMinutes * 1.5);
-            trafficTimeMinutes = Math.max(trafficTimeMinutes, simulatedTrafficTime);
+            const mongoliaTrafficTime = Math.round(normalTimeMinutes * 1.5); // 50% нэмэлт
+            trafficTimeMinutes = Math.max(trafficTimeMinutes, mongoliaTrafficTime);
+            console.log(`🇲🇳 Mongolia peak hour simulation: Normal ${normalTimeMinutes}min → Traffic ${trafficTimeMinutes}min (+${Math.round((trafficTimeMinutes/normalTimeMinutes - 1) * 100)}%)`);
           }
 
           if (leg.distance) {
@@ -146,7 +155,9 @@ const GoogleMapsTrafficCalculator = () => {
       let totalDistance = 0;
 
       // Home to School
+      console.log('🏠➡️🏫 Calculating Home to School...');
       const homeToSchool = await getRouteTime(addresses.home, addresses.school, morningRushHour);
+      console.log('Home to School result:', homeToSchool);
       totalMorningTrafficTime += homeToSchool.trafficTime;
       totalMorningNormalTime += homeToSchool.normalTime;
       routes += 'Гэр → Сургууль';
@@ -154,7 +165,9 @@ const GoogleMapsTrafficCalculator = () => {
 
       // School to Work (if work address provided)
       if (addresses.work && addresses.work.trim()) {
+        console.log('🏫➡️🏢 Calculating School to Work...');
         const schoolToWork = await getRouteTime(addresses.school, addresses.work, morningRushHour);
+        console.log('School to Work result:', schoolToWork);
         totalMorningTrafficTime += schoolToWork.trafficTime;
         totalMorningNormalTime += schoolToWork.normalTime;
         routes += ' → Ажил';
@@ -166,13 +179,17 @@ const GoogleMapsTrafficCalculator = () => {
       let totalEveningNormalTime = 0;
 
       if (addresses.work && addresses.work.trim()) {
+        console.log('🏢➡️🏫 Calculating Work to School...');
         const workToSchool = await getRouteTime(addresses.work, addresses.school, eveningRushHour);
+        console.log('Work to School result:', workToSchool);
         totalEveningTrafficTime += workToSchool.trafficTime;
         totalEveningNormalTime += workToSchool.normalTime;
         totalDistance += workToSchool.distance;
       }
 
+      console.log('🏫➡️🏠 Calculating School to Home...');
       const schoolToHome = await getRouteTime(addresses.school, addresses.home, eveningRushHour);
+      console.log('School to Home result:', schoolToHome);
       totalEveningTrafficTime += schoolToHome.trafficTime;
       totalEveningNormalTime += schoolToHome.normalTime;
       totalDistance += schoolToHome.distance;
@@ -195,6 +212,24 @@ const GoogleMapsTrafficCalculator = () => {
 
       const totalDailyTrafficTime = totalMorningTrafficTime + totalEveningTrafficTime;
       const totalDailyNormalTime = totalMorningNormalTime + totalEveningNormalTime;
+      
+      console.log('📊 Daily calculation summary:', {
+        morning: {
+          trafficTime: totalMorningTrafficTime + 'min',
+          normalTime: totalMorningNormalTime + 'min',
+          loss: (totalMorningTrafficTime - totalMorningNormalTime) + 'min'
+        },
+        evening: {
+          trafficTime: totalEveningTrafficTime + 'min', 
+          normalTime: totalEveningNormalTime + 'min',
+          loss: (totalEveningTrafficTime - totalEveningNormalTime) + 'min'
+        },
+        daily: {
+          totalTrafficTime: totalDailyTrafficTime + 'min',
+          totalNormalTime: totalDailyNormalTime + 'min',
+          totalDistance: totalDistance.toFixed(1) + 'km'
+        }
+      });
       
       // Түгжрэлийн алдагдал = түгжрэлтэй цаг - түгжрэлгүй цаг
       const dailyTrafficLoss = totalDailyTrafficTime - totalDailyNormalTime;
@@ -225,8 +260,8 @@ const GoogleMapsTrafficCalculator = () => {
       const monthlyFuelCost = Math.round(totalAnnualFuelCost / 12);
 
       const calculationResults = {
-        normalTime: totalDailyNormalTime,
-        currentTrafficTime: totalDailyTrafficTime,
+        normalTime: totalDailyNormalTime || 1, // 0 болохоос сэргийлэх
+        currentTrafficTime: totalDailyTrafficTime || 1, // 0 болохоос сэргийлэх
         dailyLoss: dailyTrafficLoss,
         // Түгжрэлтэй цагийн үндсэн дээрх тооцоо
         weeklyTrafficTime: weeklyTrafficTime,
@@ -239,15 +274,24 @@ const GoogleMapsTrafficCalculator = () => {
         monthlyMinutes: monthlyMinutesRemainder,
         yearlyHours: yearlyHours,
         yearlyMinutes: yearlyMinutes,
-        routes: routes,
-        routeDistance: parseFloat((totalDistance / 2).toFixed(1)),
-        dailyDistanceKm: parseFloat(dailyDistanceKm.toFixed(1)),
-        yearlyDistanceKm: Math.round(yearlyDistanceKm),
-        fuelConsumption: fuelConsumption,
-        totalAnnualFuelCost: totalAnnualFuelCost,
-        monthlyFuelCost: monthlyFuelCost,
+        routes: routes || 'Маршрут тооцоолоогүй',
+        routeDistance: parseFloat((totalDistance / 2).toFixed(1)) || 10,
+        dailyDistanceKm: parseFloat(dailyDistanceKm.toFixed(1)) || 20,
+        yearlyDistanceKm: Math.round(yearlyDistanceKm) || 5000,
+        fuelConsumption: fuelConsumption || 400,
+        totalAnnualFuelCost: totalAnnualFuelCost || 1000000,
+        monthlyFuelCost: monthlyFuelCost || 83333,
         calculatedAt: new Date().toLocaleString('mn-MN')
       };
+
+      console.log('🎯 Final calculation results:', calculationResults);
+      
+      // Хэрэв утга хэт бага байвал анхааруулах
+      if (totalDailyTrafficTime < 5) {
+        console.warn('⚠️ Traffic time seems too low, might be an API issue');
+        setError('Google Maps API-аас хүлээгдэх мэдээлэл авах боломжгүй байна. Хаягийг шалгаад дахин оролдно уу.');
+        return;
+      }
 
       setResults(calculationResults);
 
