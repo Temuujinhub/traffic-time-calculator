@@ -29,14 +29,14 @@ jobs:
     - name: Install dependencies
       run: |
         cd frontend
-        npm ci --force
+        npm install --legacy-peer-deps
         
     - name: Clear cache
       run: |
         cd frontend
         npm cache clean --force
-        rm -rf node_modules/.cache
-        rm -rf dist
+        rm -rf node_modules/.cache || true
+        rm -rf dist || true
 
     - name: Build
       run: |
