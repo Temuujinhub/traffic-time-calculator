@@ -554,7 +554,8 @@ const GoogleMapsTrafficCalculator = () => {
                 border: '2px solid transparent',
                 borderTop: '2px solid white',
                 borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
+                transform: 'rotate(0deg)',
+                transition: 'transform 0.1s linear'
               }}></div>
               Google Maps-аас мэдээлэл авч байна...
             </>
@@ -712,15 +713,6 @@ const GoogleMapsTrafficCalculator = () => {
           </div>
         </div>
       )}
-
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `
-      }} />
     </div>
   );
 };
