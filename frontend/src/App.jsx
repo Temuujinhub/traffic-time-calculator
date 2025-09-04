@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import SimpleGoogleMapsCalculator from './components/SimpleGoogleMapsCalculator';
+import SimpleGoogleMapsCalculatorNew from './components/SimpleGoogleMapsCalculatorNew';
 import SimpleTrafficCalculatorNew from './components/SimpleTrafficCalculatorNew';
 import CalculationsTableNew from './components/CalculationsTableNew';
 import './App.css';
@@ -91,7 +91,7 @@ function App() {
         
         {/* Tab Content */}
         {activeTab === 'google-maps' && (
-          <SimpleGoogleMapsCalculator onCalculationComplete={handleCalculationComplete} />
+          <SimpleGoogleMapsCalculatorNew onCalculationComplete={handleCalculationComplete} />
         )}
         
         {activeTab === 'calculator' && (
