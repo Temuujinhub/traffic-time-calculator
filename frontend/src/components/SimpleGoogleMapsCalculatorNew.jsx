@@ -27,27 +27,113 @@ const GoogleMapsTrafficCalculator = () => {
     setError('');
 
     try {
-      console.log('🚀 Starting fallback calculation with Mongolia traffic simulation...');
-      
-      // Mongolia-specific fallback calculation
-      // Улаанбаатарын дундаж зай болон цагийн тооцоо
-      const averageDistanceKm = 15; // Дундаж нэг талын зай
-      const normalSpeedKmh = 40; // Түгжрэлгүй дундаж хурд
-      const trafficSpeedKmh = 25; // Түгжрэлтэй дундаж хурд
-      
-      // Үндсэн тооцоо
-      const oneWayNormalTime = Math.round((averageDistanceKm / normalSpeedKmh) * 60); // минут
-      const oneWayTrafficTime = Math.round((averageDistanceKm / trafficSpeedKmh) * 60); // минут
-      
-      console.log('📊 Mongolia fallback calculation:', {
-        distance: averageDistanceKm + 'km',
-        normalSpeed: normalSpeedKmh + 'km/h',
-        trafficSpeed: trafficSpeedKmh + 'km/h',
-        oneWayNormal: oneWayNormalTime + 'min',
-        oneWayTraffic: oneWayTrafficTime + 'min'
-      });
+      // Google Maps API ашиглах оролдлого
+      if (window.google && window.google.maps) {
+        console.log('🌐 Using Google Maps API for accurate calculations...');
+        await calculateWithGoogleMaps();
+      } else {
+        console.log('🚀 Google Maps not available, using Mongolia fallback calculation...');
+        await calculateWithMongoliaFallback();
+      }
+    } catch (error) {
+      console.error('❌ Calculation error:', error);
+      setError(`Алдаа гарлаа: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      let totalMorningTrafficTime = 0;
+  const calculateWithGoogleMaps = async () => {
+    return new Promise((resolve, reject) => {
+      const directionsService = new window.google.maps.DirectionsService();
+      
+      const routes = [
+        { from: addresses.home, to: addresses.school, label: 'Гэр → Сургууль' }
+      ];
+      
+      if (addresses.work && addresses.work.trim()) {
+        routes.push({ from: addresses.school, to: addresses.work, label: 'Сургууль → Ажил' });
+        routes.push({ from: addresses.work, to: addresses.school, label: 'Ажил → Сургууль' });
+      }
+      routes.push({ from: addresses.school, to: addresses.home, label: 'Сургууль → Гэр' });
+
+      let completedRoutes = 0;
+      let totalNormalTime = 0;
+      let totalTrafficTime = 0;
+      let totalDistance = 0;
+      let routeLabels = [];
+
+      routes.forEach((route, index) => {
+        // Түгжрэлгүй цаг тооцоо
+        directionsService.route({
+          origin: route.from,
+          destination: route.to,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+          drivingOptions: {
+            departureTime: new Date(Date.now() + 3600000), // 1 цагийн дараа (түгжрэлгүй цаг)
+            trafficModel: 'bestguess'
+          }
+        }, (result, status) => {
+          if (status === 'OK') {
+            const duration = result.routes[0].legs[0].duration.value / 60; // минут
+            const distance = result.routes[0].legs[0].distance.value / 1000; // км
+            totalNormalTime += duration;
+            totalDistance += distance;
+            routeLabels.push(route.label);
+            
+            // Түгжрэлтэй цаг тооцоо
+            directionsService.route({
+              origin: route.from,
+              destination: route.to,
+              travelMode: window.google.maps.TravelMode.DRIVING,
+              drivingOptions: {
+                departureTime: new Date(), // Одоогийн цаг (түгжрэлтэй цаг)
+                trafficModel: 'pessimistic'
+              }
+            }, (trafficResult, trafficStatus) => {
+              if (trafficStatus === 'OK') {
+                const trafficDuration = trafficResult.routes[0].legs[0].duration_in_traffic.value / 60; // минут
+                totalTrafficTime += trafficDuration;
+                
+                completedRoutes++;
+                if (completedRoutes === routes.length) {
+                  processGoogleMapsResults(totalNormalTime, totalTrafficTime, totalDistance, routeLabels.join(' → '));
+                  resolve();
+                }
+              } else {
+                reject(new Error('Google Maps API алдаа: ' + trafficStatus));
+              }
+            });
+          } else {
+            reject(new Error('Google Maps API алдаа: ' + status));
+          }
+        });
+      });
+    });
+  };
+
+  const calculateWithMongoliaFallback = async () => {
+    console.log('🚀 Starting fallback calculation with Mongolia traffic simulation...');
+    
+    // Mongolia-specific fallback calculation
+    // Улаанбаатарын дундаж зай болон цагийн тооцоо
+    const averageDistanceKm = 15; // Дундаж нэг талын зай
+    const normalSpeedKmh = 40; // Түгжрэлгүй дундаж хурд
+    const trafficSpeedKmh = 25; // Түгжрэлтэй дундаж хурд
+    
+    // Үндсэн тооцоо
+    const oneWayNormalTime = Math.round((averageDistanceKm / normalSpeedKmh) * 60); // минут
+    const oneWayTrafficTime = Math.round((averageDistanceKm / trafficSpeedKmh) * 60); // минут
+    
+    console.log('📊 Mongolia fallback calculation:', {
+      distance: averageDistanceKm + 'km',
+      normalSpeed: normalSpeedKmh + 'km/h',
+      trafficSpeed: trafficSpeedKmh + 'km/h',
+      oneWayNormal: oneWayNormalTime + 'min',
+      oneWayTraffic: oneWayTrafficTime + 'min'
+    });
+
+    let totalMorningTrafficTime = 0;
       let totalMorningNormalTime = 0;
       let routes = 'Гэр → Сургууль';
       let totalDistance = averageDistanceKm * 2; // Хоёр тал
@@ -165,13 +251,76 @@ const GoogleMapsTrafficCalculator = () => {
       }
 
       setResults(calculationResults);
-
     } catch (error) {
       setError(`Алдаа гарлаа: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
+
+  const processGoogleMapsResults = (normalTime, trafficTime, distance, routes) => {
+    console.log('🌐 Google Maps calculation results:', {
+      normalTime: normalTime + 'min',
+      trafficTime: trafficTime + 'min', 
+      distance: distance.toFixed(1) + 'km',
+      routes: routes
+    });
+
+    const dailyTrafficLoss = Math.round(trafficTime - normalTime);
+    
+    // Долоо хоног, сар, жилийн тооцоо
+    const weeklyTrafficTime = Math.round(trafficTime * 5);
+    const monthlyTrafficTime = Math.round(trafficTime * 22);
+    const yearlyTrafficTime = Math.round(trafficTime * 250);
+
+    const weeklyHours = Math.floor(weeklyTrafficTime / 60);
+    const weeklyMinutes = weeklyTrafficTime % 60;
+    
+    const monthlyHours = Math.floor(monthlyTrafficTime / 60);
+    const monthlyMinutesRemainder = monthlyTrafficTime % 60;
+
+    const yearlyHours = Math.floor(yearlyTrafficTime / 60);
+    const yearlyMinutes = yearlyTrafficTime % 60;
+
+    const dailyDistanceKm = distance;
+    const yearlyDistanceKm = dailyDistanceKm * 250;
+    
+    const fuelConsumptionPer100km = 8;
+    const fuelConsumption = Math.round((yearlyDistanceKm / 100) * fuelConsumptionPer100km);
+    
+    const fuelPricePerLiter = 2500;
+    const totalAnnualFuelCost = fuelConsumption * fuelPricePerLiter;
+    const monthlyFuelCost = Math.round(totalAnnualFuelCost / 12);
+
+    const calculationResults = {
+      normalTime: Math.round(normalTime),
+      currentTrafficTime: Math.round(trafficTime),
+      dailyLoss: dailyTrafficLoss,
+      weeklyTrafficTime: weeklyTrafficTime,
+      monthlyTrafficTime: monthlyTrafficTime, 
+      yearlyTrafficTime: yearlyTrafficTime,
+      weeklyHours: weeklyHours,
+      weeklyMinutes: weeklyMinutes,
+      monthlyHours: monthlyHours,
+      monthlyMinutes: monthlyMinutesRemainder,
+      yearlyHours: yearlyHours,
+      yearlyMinutes: yearlyMinutes,
+      routes: routes,
+      routeDistance: Math.round(distance / 2 * 10) / 10,
+      dailyDistanceKm: Math.round(dailyDistanceKm * 10) / 10,
+      yearlyDistanceKm: Math.round(yearlyDistanceKm),
+      fuelConsumption: fuelConsumption,
+      totalAnnualFuelCost: totalAnnualFuelCost,
+      monthlyFuelCost: monthlyFuelCost,
+      calculatedAt: new Date().toLocaleString('mn-MN'),
+      isGoogleMapsData: true
+    };
+
+    console.log('🎯 Final Google Maps results:', calculationResults);
+    setResults(calculationResults);
+  };
+
+  const calculateWithMongoliaFallback = async () => {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
@@ -316,9 +465,43 @@ const GoogleMapsTrafficCalculator = () => {
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
           border: '1px solid #e5e7eb'
         }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', color: '#1f2937' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: '#1f2937' }}>
             📊 Үр дүн
           </h2>
+          
+          {results.isGoogleMapsData && (
+            <div style={{
+              backgroundColor: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              padding: '12px 16px',
+              borderRadius: '6px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>🌐</span>
+                <span style={{ fontSize: '14px', color: '#065f46', fontWeight: '500' }}>
+                  Google Maps-аас бодит мэдээлэл ашигласан
+                </span>
+              </div>
+            </div>
+          )}
+          
+          {!results.isGoogleMapsData && (
+            <div style={{
+              backgroundColor: '#fef3c7',
+              border: '1px solid #fbbf24',
+              padding: '12px 16px',
+              borderRadius: '6px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>🚀</span>
+                <span style={{ fontSize: '14px', color: '#92400e', fontWeight: '500' }}>
+                  Монголын дундаж мэдээлэл ашигласан
+                </span>
+              </div>
+            </div>
+          )}
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
             <div style={{
