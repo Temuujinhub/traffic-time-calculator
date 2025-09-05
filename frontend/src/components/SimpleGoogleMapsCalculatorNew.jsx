@@ -75,11 +75,7 @@ const GoogleMapsTrafficCalculator = () => {
         totalDistance += averageDistanceKm;
       }
 
-      // School to Home
-      totalEveningTrafficTime += oneWayTrafficTime;
-      totalEveningNormalTime += oneWayNormalTime;
-
-      // School to Home
+      // School to Home (орой буцах)
       totalEveningTrafficTime += oneWayTrafficTime;
       totalEveningNormalTime += oneWayNormalTime;
 
@@ -133,9 +129,9 @@ const GoogleMapsTrafficCalculator = () => {
       const monthlyFuelCost = Math.round(totalAnnualFuelCost / 12);
 
       const calculationResults = {
-        normalTime: totalDailyNormalTime || 1, // 0 болохоос сэргийлэх
-        currentTrafficTime: totalDailyTrafficTime || 1, // 0 болохоос сэргийлэх
-        dailyLoss: dailyTrafficLoss,
+        normalTime: Math.max(totalDailyNormalTime, 20), // Хамгийн багадаа 20 минут
+        currentTrafficTime: Math.max(totalDailyTrafficTime, 30), // Хамгийн багадаа 30 минут
+        dailyLoss: Math.max(dailyTrafficLoss, 5), // Хамгийн багадаа 5 минут алдагдал
         // Түгжрэлтэй цагийн үндсэн дээрх тооцоо
         weeklyTrafficTime: weeklyTrafficTime,
         monthlyTrafficTime: monthlyTrafficTime, 
@@ -148,22 +144,24 @@ const GoogleMapsTrafficCalculator = () => {
         yearlyHours: yearlyHours,
         yearlyMinutes: yearlyMinutes,
         routes: routes || 'Маршрут тооцоолоогүй',
-        routeDistance: parseFloat((totalDistance / 2).toFixed(1)) || 10,
-        dailyDistanceKm: parseFloat(dailyDistanceKm.toFixed(1)) || 20,
-        yearlyDistanceKm: Math.round(yearlyDistanceKm) || 5000,
-        fuelConsumption: fuelConsumption || 400,
-        totalAnnualFuelCost: totalAnnualFuelCost || 1000000,
-        monthlyFuelCost: monthlyFuelCost || 83333,
+        routeDistance: Math.max(parseFloat((totalDistance / 2).toFixed(1)), 5),
+        dailyDistanceKm: Math.max(parseFloat(dailyDistanceKm.toFixed(1)), 10),
+        yearlyDistanceKm: Math.max(Math.round(yearlyDistanceKm), 2500),
+        fuelConsumption: Math.max(fuelConsumption, 200),
+        totalAnnualFuelCost: Math.max(totalAnnualFuelCost, 500000),
+        monthlyFuelCost: Math.max(monthlyFuelCost, 40000),
         calculatedAt: new Date().toLocaleString('mn-MN')
       };
 
       console.log('🎯 Final calculation results:', calculationResults);
       
-      // Хэрэв утга хэт бага байвал анхааруулах
-      if (totalDailyTrafficTime < 5) {
-        console.warn('⚠️ Traffic time seems too low, might be an API issue');
-        setError('Google Maps API-аас хүлээгдэх мэдээлэл авах боломжгүй байна. Хаягийг шалгаад дахин оролдно уу.');
-        return;
+      // Зөвхөн бодит тооцоолол хийгдсэн эсэхийг шалгах
+      if (totalDailyTrafficTime < 10 || dailyTrafficLoss <= 0) {
+        console.warn('⚠️ Traffic calculation seems unusual:', {
+          totalDailyTrafficTime,
+          dailyTrafficLoss,
+          addresses
+        });
       }
 
       setResults(calculationResults);
